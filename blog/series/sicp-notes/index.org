@@ -1,0 +1,5 @@
+#+TITLE: 《SICP》笔记
+#+TAGS: :cs:sicp:study:
+
+SICP（Structure and Interpretation of Computer Programs）学习笔记。
+参考课程: MIT 6.001
