@@ -10,6 +10,7 @@ backend/backend
 
 # generated static output
 frontend/posts/
+frontend/series/
 frontend/posts.json
 frontend/tags.json
 frontend/about.json

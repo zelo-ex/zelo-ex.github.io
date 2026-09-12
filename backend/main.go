@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -121,10 +122,33 @@ func writeErr(w http.ResponseWriter, status int, msg string) {
 // post scanning
 // ---------------------------------------------------------------------------
 
-var postPathRe = regexp.MustCompile(`^\d{4}/\d{2}/[A-Za-z0-9._-]+\.org$`)
+var (
+	postPathRe      = regexp.MustCompile(`^\d{4}/\d{2}/[A-Za-z0-9._-]+\.org$`)
+	yearPartRe      = regexp.MustCompile(`^\d{4}$`)
+	seriesChapterRe = regexp.MustCompile(`^series/([A-Za-z0-9._-]+)/(\d+)-([A-Za-z0-9._-]+)\.org$`)
+	seriesSlugRe    = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+)
 
-// scanPosts walks blogRoot for published posts (YYYY/MM/name.org).
-// Drafts (*.sec.org) are excluded.
+// classifyPost turns a slash-separated org path (relative to blog root)
+// into post metadata, or reports it as a non-post (about.org, series
+// index.org, ...).
+func classifyPost(rel string) (PostMeta, bool) {
+	if postPathRe.MatchString(rel) {
+		return PostMeta{Path: strings.TrimSuffix(rel, ".org")}, true
+	}
+	if m := seriesChapterRe.FindStringSubmatch(rel); m != nil {
+		order, _ := strconv.Atoi(m[2])
+		return PostMeta{
+			Path:        strings.TrimSuffix(rel, ".org"), // keep the NN- prefix in the slug/URL
+			Series:      m[1],
+			SeriesOrder: order,
+		}, true
+	}
+	return PostMeta{}, false
+}
+
+// scanPosts walks blogRoot for published posts (YYYY/MM/name.org and
+// series/SLUG/NN-name.org). Drafts (*.sec.org) are excluded.
 func (s *server) scanPosts() ([]PostMeta, error) {
 	var posts []PostMeta
 	err := filepath.WalkDir(s.blogRoot, func(p string, d os.DirEntry, err error) error {
@@ -145,9 +169,6 @@ func (s *server) scanPosts() ([]PostMeta, error) {
 			return err
 		}
 		rel = filepath.ToSlash(rel)
-		if !postPathRe.MatchString(rel) {
-			return nil
-		}
 		base := filepath.Base(rel)
 		if strings.HasPrefix(base, ".") || strings.HasPrefix(base, "_") {
 			return nil
@@ -155,13 +176,20 @@ func (s *server) scanPosts() ([]PostMeta, error) {
 		if strings.HasSuffix(base, ".sec.org") {
 			return nil
 		}
+		meta, ok := classifyPost(rel)
+		if !ok {
+			return nil
+		}
 		src, err := os.ReadFile(p)
 		if err != nil {
 			return err
 		}
-		meta := parseMeta(string(src))
-		meta.Path = strings.TrimSuffix(rel, ".org")
+		parsed := parseMeta(string(src))
+		meta.Title, meta.Date, meta.Tags = parsed.Title, parsed.Date, parsed.Tags
 		meta.fillFallbacks()
+		if meta.Title == "" {
+			meta.Title = fallbackTitle(string(src), meta.Path)
+		}
 		posts = append(posts, meta)
 		return nil
 	})
@@ -172,13 +200,128 @@ func (s *server) scanPosts() ([]PostMeta, error) {
 	return posts, nil
 }
 
+// SeriesMeta is a single series, backed by series/SLUG/index.org plus its
+// chapters. Start/Latest come from the chapters' own #+DATE values.
+type SeriesMeta struct {
+	Slug   string        `json:"slug"`
+	Title  string        `json:"title"`
+	Tags   []string      `json:"tags,omitempty"`
+	Start  string        `json:"start,omitempty"`  // earliest chapter date
+	Latest string        `json:"latest,omitempty"` // latest chapter date
+	Count  int           `json:"count"`
+	Intro  string        `json:"intro,omitempty"` // rendered index.org body
+	Posts  []postSummary `json:"posts"`
+}
+
+// scanSeries builds the series list from blog/series/*/index.org plus the
+// chapters gathered by scanPosts.
+func (s *server) scanSeries(posts []PostMeta) ([]SeriesMeta, error) {
+	root := filepath.Join(s.blogRoot, "series")
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	bySlug := map[string]*SeriesMeta{}
+	var slugs []string
+	for _, e := range entries {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") || strings.HasPrefix(e.Name(), "_") {
+			continue
+		}
+		slug := e.Name()
+		src, err := os.ReadFile(filepath.Join(root, slug, "index.org"))
+		if err != nil {
+			continue
+		}
+		m := parseMeta(string(src))
+		title := m.Title
+		if title == "" {
+			title = slug
+		}
+		bySlug[slug] = &SeriesMeta{
+			Slug:  slug,
+			Title: title,
+			Tags:  m.Tags,
+			Intro: renderOrg(string(src), "series/"+slug),
+		}
+		slugs = append(slugs, slug)
+	}
+
+	chapters := map[string][]PostMeta{}
+	for _, p := range posts {
+		if p.Series != "" {
+			chapters[p.Series] = append(chapters[p.Series], p)
+		}
+	}
+
+	series := make([]SeriesMeta, 0, len(slugs))
+	for _, slug := range slugs {
+		sm := bySlug[slug]
+		chs := chapters[slug]
+		sort.Slice(chs, func(i, j int) bool { return chs[i].SeriesOrder < chs[j].SeriesOrder })
+		sm.Start, sm.Latest = seriesRange(chs)
+		sm.Count = len(chs)
+		sm.Posts = make([]postSummary, 0, len(chs))
+		for _, c := range chs {
+			sm.Posts = append(sm.Posts, summarize(c))
+		}
+		series = append(series, *sm)
+	}
+	sort.Slice(series, func(i, j int) bool {
+		ti, _ := parsePostTime(PostMeta{Date: series[i].Latest})
+		tj, _ := parsePostTime(PostMeta{Date: series[j].Latest})
+		if !ti.Equal(tj) {
+			return ti.After(tj)
+		}
+		return series[i].Title < series[j].Title
+	})
+	return series, nil
+}
+
+// seriesRange returns the earliest and latest chapter dates, in display form.
+func seriesRange(chapters []PostMeta) (start, latest string) {
+	var startT, latestT time.Time
+	for _, c := range chapters {
+		t, ok := parsePostTime(c)
+		if !ok {
+			continue
+		}
+		d := displayDate(c.Date)
+		if start == "" || t.Before(startT) {
+			start, startT = d, t
+		}
+		if latest == "" || t.After(latestT) {
+			latest, latestT = d, t
+		}
+	}
+	return start, latest
+}
+
+// attachSeriesTitles fills SeriesTitle on series chapters so chapter pages
+// can show the series name.
+func attachSeriesTitles(posts []PostMeta, series []SeriesMeta) {
+	m := make(map[string]string, len(series))
+	for _, sm := range series {
+		m[sm.Slug] = sm.Title
+	}
+	for i := range posts {
+		if posts[i].Series != "" && posts[i].SeriesTitle == "" {
+			posts[i].SeriesTitle = m[posts[i].Series]
+		}
+	}
+}
+
 // fillFallbacks derives Title/Date from content/path when keywords are absent.
 func (m *PostMeta) fillFallbacks() {
-	if m.Date == "" {
-		parts := strings.Split(m.Path, "/")
-		if len(parts) >= 2 {
-			m.Date = parts[0] + "-" + parts[1]
-		}
+	if m.Date != "" {
+		return
+	}
+	parts := strings.Split(m.Path, "/")
+	if len(parts) >= 2 && yearPartRe.MatchString(parts[0]) {
+		m.Date = parts[0] + "-" + parts[1]
 	}
 }
 
@@ -239,10 +382,55 @@ type postSummary struct {
 	Title string   `json:"title"`
 	Date  string   `json:"date"`
 	Tags  []string `json:"tags"`
+	Order int      `json:"order,omitempty"` // series chapter order (0 for normal posts)
 }
 
 func summarize(p PostMeta) postSummary {
-	return postSummary{Path: p.Path, Title: p.Title, Date: displayDate(p.Date), Tags: p.Tags}
+	return postSummary{Path: p.Path, Title: p.Title, Date: displayDate(p.Date), Tags: p.Tags, Order: p.SeriesOrder}
+}
+
+// feedItem is one entry in posts.json: either a standalone post (kind=post)
+// or a whole series collapsed into a single row (kind=series).
+type feedItem struct {
+	Kind   string   `json:"kind"` // "post" | "series"
+	Path   string   `json:"path,omitempty"`
+	Series string   `json:"series,omitempty"`
+	Title  string   `json:"title"`
+	Date   string   `json:"date,omitempty"`
+	Tags   []string `json:"tags,omitempty"`
+	Count  int      `json:"count,omitempty"`
+
+	t time.Time // sort key, not serialized
+}
+
+// buildFeed merges standalone posts and series entries into a single list
+// ordered by date, newest first. Series chapters are folded into their series.
+func buildFeed(posts []PostMeta, series []SeriesMeta) []feedItem {
+	items := make([]feedItem, 0, len(posts)+len(series))
+	for _, p := range posts {
+		if p.Series != "" {
+			continue
+		}
+		t, _ := parsePostTime(p)
+		items = append(items, feedItem{
+			Kind: "post", Path: p.Path, Title: p.Title,
+			Date: displayDate(p.Date), Tags: p.Tags, t: t,
+		})
+	}
+	for _, sm := range series {
+		t, _ := parsePostTime(PostMeta{Date: sm.Latest})
+		items = append(items, feedItem{
+			Kind: "series", Series: sm.Slug, Title: sm.Title,
+			Date: sm.Latest, Tags: sm.Tags, Count: sm.Count, t: t,
+		})
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		if !items[i].t.Equal(items[j].t) {
+			return items[i].t.After(items[j].t)
+		}
+		return items[i].Title < items[j].Title
+	})
+	return items
 }
 
 func (s *server) handlePosts(w http.ResponseWriter, r *http.Request) {
@@ -251,13 +439,19 @@ func (s *server) handlePosts(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	series, err := s.scanSeries(posts)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	items := buildFeed(posts, series)
 	tag := r.URL.Query().Get("tag")
-	list := make([]postSummary, 0, len(posts))
-	for _, p := range posts {
-		if tag != "" && !hasTag(p.Tags, tag) {
+	list := make([]feedItem, 0, len(items))
+	for _, it := range items {
+		if tag != "" && !hasTag(it.Tags, tag) {
 			continue
 		}
-		list = append(list, summarize(p))
+		list = append(list, it)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"posts": list})
 }
@@ -271,7 +465,7 @@ func hasTag(tags []string, want string) bool {
 	return false
 }
 
-var postSlugRe = regexp.MustCompile(`^\d{4}/\d{2}/[A-Za-z0-9._-]+$`)
+var postSlugRe = regexp.MustCompile(`^(\d{4}/\d{2}/[A-Za-z0-9._-]+|series/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+)$`)
 
 func (s *server) handlePost(w http.ResponseWriter, r *http.Request) {
 	p := strings.TrimPrefix(r.URL.Query().Get("p"), "/")
@@ -299,8 +493,9 @@ func (s *server) handlePost(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, detail)
 }
 
-// findNav returns the newer (prev) and older (next) neighbours of path
-// within the date-descending published list.
+// findNav returns the neighbours of path. Standalone posts navigate by date
+// across the published list; series chapters navigate within their series
+// (by NN order).
 func findNav(posts []PostMeta, path string) (prev, next *postSummary) {
 	idx := -1
 	for i, q := range posts {
@@ -312,13 +507,42 @@ func findNav(posts []PostMeta, path string) (prev, next *postSummary) {
 	if idx < 0 {
 		return nil, nil
 	}
-	if idx > 0 {
-		ps := summarize(posts[idx-1])
-		prev = &ps // newer
+	cur := posts[idx]
+
+	var list []PostMeta
+	if cur.Series != "" {
+		for _, q := range posts {
+			if q.Series == cur.Series {
+				list = append(list, q)
+			}
+		}
+		sort.Slice(list, func(i, j int) bool { return list[i].SeriesOrder < list[j].SeriesOrder })
+	} else {
+		for _, q := range posts {
+			if q.Series == "" {
+				list = append(list, q)
+			}
+		}
+		// posts are already date-descending; list keeps that order
 	}
-	if idx < len(posts)-1 {
-		ps := summarize(posts[idx+1])
-		next = &ps // older
+
+	k := -1
+	for i, q := range list {
+		if q.Path == path {
+			k = i
+			break
+		}
+	}
+	if k < 0 {
+		return nil, nil
+	}
+	if k > 0 {
+		ps := summarize(list[k-1])
+		prev = &ps
+	}
+	if k < len(list)-1 {
+		ps := summarize(list[k+1])
+		next = &ps
 	}
 	return prev, next
 }
@@ -332,6 +556,7 @@ func (s *server) loadPost(slug string) (PostMeta, string, error) {
 	}
 	meta := parseMeta(string(src))
 	meta.Path = slug
+	s.applySeriesPath(&meta)
 	meta.fillFallbacks()
 	if meta.Title == "" {
 		meta.Title = fallbackTitle(string(src), slug)
@@ -342,15 +567,47 @@ func (s *server) loadPost(slug string) (PostMeta, string, error) {
 	return meta, htmlOut, nil
 }
 
+// applySeriesPath fills Series/SeriesTitle when slug is a series chapter.
+func (s *server) applySeriesPath(meta *PostMeta) {
+	parts := strings.Split(meta.Path, "/")
+	if len(parts) != 3 || parts[0] != "series" {
+		return
+	}
+	meta.Series = parts[1]
+	meta.SeriesTitle = s.seriesTitle(parts[1])
+}
+
+// seriesTitle reads the display title from a series index.org, falling back
+// to the slug.
+func (s *server) seriesTitle(slug string) string {
+	src, err := os.ReadFile(filepath.Join(s.blogRoot, "series", slug, "index.org"))
+	if err != nil {
+		return slug
+	}
+	m := parseMeta(string(src))
+	if m.Title == "" {
+		return slug
+	}
+	return m.Title
+}
+
 type tagCount struct {
 	Tag   string `json:"tag"`
 	Count int    `json:"count"`
 }
 
-func buildTags(posts []PostMeta) []tagCount {
+func buildTags(posts []PostMeta, series []SeriesMeta) []tagCount {
 	counts := map[string]int{}
 	for _, p := range posts {
+		if p.Series != "" {
+			continue // chapters are covered by their series entry
+		}
 		for _, t := range p.Tags {
+			counts[t]++
+		}
+	}
+	for _, sm := range series {
+		for _, t := range sm.Tags {
 			counts[t]++
 		}
 	}
@@ -373,7 +630,12 @@ func (s *server) handleTags(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"tags": buildTags(posts)})
+	series, err := s.scanSeries(posts)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"tags": buildTags(posts, series)})
 }
 
 // buildAbout renders blog/about.org into the {title, html} shape used by
@@ -421,6 +683,10 @@ func (s *server) handleStatic(w http.ResponseWriter, r *http.Request) {
 		s.serveFile(w, r, filepath.Join(s.frontendRoot, "tags.html"))
 	case strings.HasPrefix(p, "/posts/") && len(p) > 8:
 		s.handlePostPage(w, r)
+	case strings.HasPrefix(p, "/series/") && strings.HasSuffix(p, ".json"):
+		s.handleSeriesJSON(w, r)
+	case strings.HasPrefix(p, "/series/") && strings.HasSuffix(p, ".html"):
+		s.handleSeriesPage(w, r)
 	case strings.HasPrefix(p, "/assets/"):
 		rel := filepath.FromSlash(strings.TrimPrefix(p, "/assets/"))
 		full, ok := safeJoin(filepath.Join(s.blogRoot, "assets"), rel)
@@ -457,6 +723,82 @@ func (s *server) serveFile(w http.ResponseWriter, r *http.Request, file string) 
 		return
 	}
 	http.ServeContent(w, r, filepath.Base(file), st.ModTime(), f)
+}
+
+// seriesSlugFromPath extracts the series slug from /series/SLUG[.suffix].
+func seriesSlugFromPath(p, suffix string) string {
+	rest := strings.TrimPrefix(p, "/series/")
+	rest = strings.TrimSuffix(rest, suffix)
+	if rest == "" || !seriesSlugRe.MatchString(rest) {
+		return ""
+	}
+	return rest
+}
+
+// handleSeriesPage serves the static shell for a series landing page. The
+// data is fetched by js/series.js from /series/SLUG.json.
+func (s *server) handleSeriesPage(w http.ResponseWriter, r *http.Request) {
+	slug := seriesSlugFromPath(r.URL.Path, ".html")
+	if slug == "" {
+		s.notFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if _, err := w.Write([]byte(seriesPageShell())); err != nil {
+		log.Printf("handleSeriesPage: write: %v", err)
+	}
+}
+
+// handleSeriesJSON serves the data for one series landing page.
+func (s *server) handleSeriesJSON(w http.ResponseWriter, r *http.Request) {
+	slug := seriesSlugFromPath(r.URL.Path, ".json")
+	if slug == "" {
+		s.notFound(w, r)
+		return
+	}
+	posts, err := s.scanPosts()
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	series, err := s.scanSeries(posts)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	for _, sm := range series {
+		if sm.Slug == slug {
+			writeJSON(w, http.StatusOK, sm)
+			return
+		}
+	}
+	writeErr(w, http.StatusNotFound, "series not found")
+}
+
+// seriesPageShell is the static HTML shell shared by generate and the dev
+// server. The slug is resolved on the client from location.pathname.
+func seriesPageShell() string {
+	return `<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<title>series - zal-blog</title>
+<link href="/style.css" rel="stylesheet"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+</head>
+<body>
+<div class="term-frame">
+<span class="blog-title" id="series-title">series</span>
+<hr class="splitter" />
+<a href="/">back index</a>
+<a href="/blog.html">visit blog</a>
+<a href="/tags.html">tags</a>
+<div class="content" id="series-content"></div>
+</div>
+<script type="module" src="/js/series.js"></script>
+</body>
+</html>
+`
 }
 
 func (s *server) notFound(w http.ResponseWriter, r *http.Request) {

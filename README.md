@@ -29,7 +29,8 @@ frontend/
 ├── about.json                渲染后的关于页
 ├── rss.xml                   RSS 订阅
 ├── assets/                   从 blog/assets/ 复制
-└── posts/YYYY/MM/slug.html   每篇文章一个完整 HTML 页
+├── posts/YYYY/MM/slug.html   每篇文章一个完整 HTML 页
+└── series/SLUG.{html,json}   每个系列一个落地页 + 数据
 ```
 
 整个 `frontend/` 就是一个可独立托管的静态站点（GitHub Pages 等）。
@@ -43,6 +44,30 @@ frontend/
   - `#+TAGS: :tag1:tag2:`（可省略）
   - 草稿：文件名以 `.sec.org` 结尾（如 `todo.sec.org`）。不出现在列表/标签/RSS/静态站中，且被 .gitignore 忽略不进仓库；开发模式下可直接访问预览（URL 用 `2026/08/todo.sec`）
 - 文章按日期倒序排列
+
+### 系列文章
+
+系列内容放在 `blog/series/SLUG/`（SLUG 为英文目录名，进入 URL）：
+
+```
+blog/series/sicp-notes/
+├── index.org                系列元信息 + 简介
+├── 01-chapter-one.org       章节 01
+└── 02-chapter-two.org       章节 02
+```
+
+- `index.org`：
+  - `#+TITLE:` 系列标题（展示在博客列表里，形如 `Title[Count]`）
+  - `#+TAGS:` 系列标签
+  - 正文作为系列简介，渲染在系列落地页
+  - 无需写 `#+DATE` 和文章数量：开始/最后日期自动取章节 `#+DATE` 的最早/最晚值，`[Count]` 自动统计
+- 章节 `NN-*.org`：`NN` 是两位数序号（只决定系列内顺序），`*` 是章节 slug；
+  如 `01-chapter-one.org` → `/posts/series/sicp-notes/01-chapter-one.html`。
+  章节可选写 `#+DATE` / `#+TITLE`；不写 `#+DATE` 则不参与系列日期统计。
+  草稿同样用 `.sec.org` 后缀（如 `03-draft.sec.org`）。
+- 博客列表里整个系列折叠为一条 `Title[Count]`，按系列最后日期排序；
+  点进去是 `/series/SLUG.html`（简介 + 开始/最后日期 + 标签 + 章节列表）。
+- 系列图片放 `blog/assets/series/SLUG/`。
 
 ## 图片
 
@@ -64,7 +89,8 @@ frontend/
 |------|------|
 | `/` | 首页 |
 | `/blog.html` | 博客列表（读 `posts.json`） |
-| `/posts/2025/08/slug.html` | 文章详情（静态生成） |
+| `/posts/2025/08/slug.html` | 文章详情（静态生成；系列章节为 `/posts/series/SLUG/NN-name.html`） |
+| `/series/SLUG.html` | 系列落地页（读 `series/SLUG.json`：简介、日期范围、标签、章节列表） |
 | `/tags.html`（`?t=tag` 过滤） | 标签（读 `tags.json` + `posts.json`） |
 | `/about.html` | 关于（读 `about.json`） |
 | `/rss.xml` | RSS 订阅 |

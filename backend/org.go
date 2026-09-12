@@ -15,6 +15,11 @@ type PostMeta struct {
 	Title string   `json:"title"`
 	Date  string   `json:"date"`
 	Tags  []string `json:"tags"`
+
+	// Series fields are empty for normal posts.
+	Series      string `json:"series,omitempty"`       // series slug, e.g. "sicp-notes"
+	SeriesTitle string `json:"series_title,omitempty"` // display title from series index.org
+	SeriesOrder int    `json:"series_order,omitempty"` // 1-based order from the NN- prefix
 }
 
 var keywordRe = regexp.MustCompile(`^#\+(\w+):[ \t]*(.*)$`)

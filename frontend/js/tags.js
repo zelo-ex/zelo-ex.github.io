@@ -1,4 +1,4 @@
-import { getJSON, esc, postLink } from '/js/common.js';
+import { getJSON, esc, feedLink, feedTitleHTML } from '/js/common.js';
 
 const box = document.getElementById('tags-box');
 const postsBox = document.getElementById('tag-posts');
@@ -20,10 +20,10 @@ try {
 
   if (active) {
     const filtered = postsData.posts.filter(p =>
-      p.tags.some(t => t.toLowerCase() === active.toLowerCase()));
+      (p.tags || []).some(t => t.toLowerCase() === active.toLowerCase()));
     postsBox.innerHTML = '\n# ' + esc(active) + '\n' + (filtered.length
       ? filtered.map(p =>
-          `<a href="${postLink(p.path)}">${esc(p.title)}</a>` +
+          `<a href="${feedLink(p)}">${feedTitleHTML(p)}</a>` +
           `<span class="dim">${esc(p.date)}</span>`
         ).join('\n')
       : 'no posts');

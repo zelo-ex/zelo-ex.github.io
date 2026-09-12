@@ -44,9 +44,18 @@ func buildPostPage(meta PostMeta, content string, prev, next *postSummary) strin
 	return page
 }
 
-// postNavHTML builds the tags + newer/older navigation block.
+// postNavHTML builds the tags + navigation block. Series chapters get a
+// back-to-series link plus previous/next chapter links; standalone posts
+// keep the older/newer date navigation.
 func postNavHTML(meta PostMeta, prev, next *postSummary) string {
 	var lines []string
+	if meta.Series != "" {
+		title := meta.SeriesTitle
+		if title == "" {
+			title = meta.Series
+		}
+		lines = append(lines, `series: <a href="/series/`+url.PathEscape(meta.Series)+`.html">`+html.EscapeString(title)+`</a>`)
+	}
 	if len(meta.Tags) > 0 {
 		parts := make([]string, 0, len(meta.Tags))
 		for _, t := range meta.Tags {
@@ -54,11 +63,20 @@ func postNavHTML(meta PostMeta, prev, next *postSummary) string {
 		}
 		lines = append(lines, "tags: "+strings.Join(parts, " "))
 	}
-	if prev != nil {
-		lines = append(lines, `<a href="/posts/`+prev.Path+`.html">`+html.EscapeString(prev.Title)+` <- next</a>`)
-	}
-	if next != nil {
-		lines = append(lines, `<a href="/posts/`+next.Path+`.html">prev -> `+html.EscapeString(next.Title)+`</a>`)
+	if meta.Series != "" {
+		if prev != nil {
+			lines = append(lines, `← <a href="/posts/`+prev.Path+`.html">`+html.EscapeString(prev.Title)+`</a>`)
+		}
+		if next != nil {
+			lines = append(lines, `<a href="/posts/`+next.Path+`.html">`+html.EscapeString(next.Title)+`</a> →`)
+		}
+	} else {
+		if prev != nil {
+			lines = append(lines, `<a href="/posts/`+prev.Path+`.html">`+html.EscapeString(prev.Title)+` <- next</a>`)
+		}
+		if next != nil {
+			lines = append(lines, `<a href="/posts/`+next.Path+`.html">prev -> `+html.EscapeString(next.Title)+`</a>`)
+		}
 	}
 	return strings.Join(lines, "\n")
 }
@@ -109,6 +127,11 @@ func (s *server) generate(base string) error {
 	if err != nil {
 		return err
 	}
+	series, err := s.scanSeries(posts)
+	if err != nil {
+		return err
+	}
+	attachSeriesTitles(posts, series)
 
 	postsDir := filepath.Join(s.frontendRoot, "posts")
 	if err := os.RemoveAll(postsDir); err != nil {
@@ -118,8 +141,7 @@ func (s *server) generate(base string) error {
 		return err
 	}
 
-	summaries := make([]postSummary, 0, len(posts))
-	for i, p := range posts {
+	for _, p := range posts {
 		_, content, err := s.loadPost(p.Path)
 		if err != nil {
 			log.Printf("generate: skip %s: %v", p.Path, err)
@@ -134,13 +156,29 @@ func (s *server) generate(base string) error {
 		if err := os.WriteFile(out, []byte(page), 0o644); err != nil {
 			return err
 		}
-		summaries = append(summaries, summarize(posts[i]))
 	}
 
-	if err := writeFileJSON(filepath.Join(s.frontendRoot, "posts.json"), map[string]any{"posts": summaries}); err != nil {
+	seriesDir := filepath.Join(s.frontendRoot, "series")
+	if err := os.RemoveAll(seriesDir); err != nil {
 		return err
 	}
-	if err := writeFileJSON(filepath.Join(s.frontendRoot, "tags.json"), map[string]any{"tags": buildTags(posts)}); err != nil {
+	if err := os.MkdirAll(seriesDir, 0o755); err != nil {
+		return err
+	}
+	for _, sm := range series {
+		base := filepath.Join(seriesDir, filepath.FromSlash(sm.Slug))
+		if err := writeFileJSON(base+".json", sm); err != nil {
+			return err
+		}
+		if err := os.WriteFile(base+".html", []byte(seriesPageShell()), 0o644); err != nil {
+			return err
+		}
+	}
+
+	if err := writeFileJSON(filepath.Join(s.frontendRoot, "posts.json"), map[string]any{"posts": buildFeed(posts, series)}); err != nil {
+		return err
+	}
+	if err := writeFileJSON(filepath.Join(s.frontendRoot, "tags.json"), map[string]any{"tags": buildTags(posts, series)}); err != nil {
 		return err
 	}
 	about, err := s.buildAbout()

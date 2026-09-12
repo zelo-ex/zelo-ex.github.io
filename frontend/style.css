@@ -73,6 +73,11 @@ body {
     color: #888;
 }
 
+sub.series-count {
+    font-size: 0.7em;
+    color: #888;
+}
+
 /* post content injected by js */
 .content h2 { font-size: 1.6em; margin: 0.8em 0 0.3em; }
 .content h3 { font-size: 1.3em; margin: 0.7em 0 0.2em; }

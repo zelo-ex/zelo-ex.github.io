@@ -21,6 +21,21 @@ export function postLink(path) {
   return '/posts/' + encodeURIComponent(path) + '.html';
 }
 
+export function feedLink(item) {
+  if (item.kind === 'series') {
+    return '/series/' + encodeURIComponent(item.series) + '.html';
+  }
+  return postLink(item.path);
+}
+
+export function feedTitleHTML(item) {
+  const title = esc(item.title);
+  if (item.kind === 'series') {
+    return `${title}<sub class="series-count">[${item.count}]</sub>`;
+  }
+  return title;
+}
+
 export function tagsHTML(tags) {
   if (!tags || !tags.length) return '';
   return ' ' + tags.map(t =>
