@@ -49,7 +49,6 @@ func (s *server) serve(port string) {
 	mux.HandleFunc("GET /api/about", s.handleAbout)
 	mux.HandleFunc("GET /posts.json", s.handlePosts)
 	mux.HandleFunc("GET /tags.json", s.handleTags)
-	mux.HandleFunc("GET /about.json", s.handleAbout)
 	mux.HandleFunc("GET /rss.xml", s.handleRSS)
 	mux.HandleFunc("/", s.handleStatic)
 
@@ -123,33 +122,57 @@ func writeErr(w http.ResponseWriter, status int, msg string) {
 // ---------------------------------------------------------------------------
 
 var (
-	postPathRe      = regexp.MustCompile(`^\d{4}/\d{2}/[A-Za-z0-9._-]+\.org$`)
-	yearPartRe      = regexp.MustCompile(`^\d{4}$`)
-	seriesChapterRe = regexp.MustCompile(`^series/([A-Za-z0-9._-]+)/(\d+)-([A-Za-z0-9._-]+)\.org$`)
-	seriesSlugRe    = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+	postPathRe   = regexp.MustCompile(`^\d{4}/\d{2}/[A-Za-z0-9._-]+\.org$`)
+	yearPartRe   = regexp.MustCompile(`^\d{4}$`)
+	seriesFileRe = regexp.MustCompile(`^series/([A-Za-z0-9._-]+)/([A-Za-z0-9._-]+)\.org$`)
+	prefixNumRe  = regexp.MustCompile(`^(\d+)-(.+)$`)
+	suffixNumRe  = regexp.MustCompile(`^(.+)-(\d+)$`)
+	seriesSlugRe = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 )
 
 // classifyPost turns a slash-separated org path (relative to blog root)
 // into post metadata, or reports it as a non-post (about.org, series
-// index.org, ...).
-func classifyPost(rel string) (PostMeta, bool) {
+// index.org, ...). Series chapters order by a leading number by default,
+// or by a trailing number when their series opts into suffix ordering.
+func classifyPost(rel string, suffixBySlug map[string]bool) (PostMeta, bool) {
 	if postPathRe.MatchString(rel) {
 		return PostMeta{Path: strings.TrimSuffix(rel, ".org")}, true
 	}
-	if m := seriesChapterRe.FindStringSubmatch(rel); m != nil {
-		order, _ := strconv.Atoi(m[2])
-		return PostMeta{
-			Path:        strings.TrimSuffix(rel, ".org"), // keep the NN- prefix in the slug/URL
-			Series:      m[1],
-			SeriesOrder: order,
-		}, true
+	m := seriesFileRe.FindStringSubmatch(rel)
+	if m == nil {
+		return PostMeta{}, false
 	}
-	return PostMeta{}, false
+	slug, file := m[1], strings.TrimSuffix(m[2], ".org")
+	var order int
+	if suffixBySlug[slug] {
+		p := suffixNumRe.FindStringSubmatch(file)
+		if p == nil {
+			return PostMeta{}, false
+		}
+		order, _ = strconv.Atoi(p[2])
+	} else {
+		p := prefixNumRe.FindStringSubmatch(file)
+		if p == nil {
+			return PostMeta{}, false
+		}
+		order, _ = strconv.Atoi(p[1])
+	}
+	return PostMeta{
+		Path:        "series/" + slug + "/" + file,
+		Series:      slug,
+		SeriesOrder: order,
+	}, true
 }
 
 // scanPosts walks blogRoot for published posts (YYYY/MM/name.org and
-// series/SLUG/NN-name.org). Drafts (*.sec.org) are excluded.
+// series/SLUG/*.org). Drafts (*.sec.org) are excluded.
 func (s *server) scanPosts() ([]PostMeta, error) {
+	cfgs := s.scanSeriesConfigs()
+	suffixBySlug := make(map[string]bool, len(cfgs))
+	for slug, c := range cfgs {
+		suffixBySlug[slug] = c.suffixOrder
+	}
+
 	var posts []PostMeta
 	err := filepath.WalkDir(s.blogRoot, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -176,7 +199,7 @@ func (s *server) scanPosts() ([]PostMeta, error) {
 		if strings.HasSuffix(base, ".sec.org") {
 			return nil
 		}
-		meta, ok := classifyPost(rel)
+		meta, ok := classifyPost(rel, suffixBySlug)
 		if !ok {
 			return nil
 		}
@@ -211,22 +234,41 @@ type SeriesMeta struct {
 	Count  int           `json:"count"`
 	Intro  string        `json:"intro,omitempty"` // rendered index.org body
 	Posts  []postSummary `json:"posts"`
+
+	SuffixOrder bool `json:"suffix_order,omitempty"` // chapters number by trailing digits
 }
 
-// scanSeries builds the series list from blog/series/*/index.org plus the
-// chapters gathered by scanPosts.
-func (s *server) scanSeries(posts []PostMeta) ([]SeriesMeta, error) {
+// seriesConfig is the metadata parsed from a series index.org.
+type seriesConfig struct {
+	title       string
+	tags        []string
+	suffixOrder bool
+	intro       string
+}
+
+// parseSuffixOrder reports whether a series index.org opts into suffix
+// (trailing-number) chapter ordering via #+SUFFIX_ORDER.
+func parseSuffixOrder(src string) bool {
+	for line := range strings.SplitSeq(src, "\n") {
+		m := keywordRe.FindStringSubmatch(line)
+		if m == nil || !strings.EqualFold(m[1], "SUFFIX_ORDER") {
+			continue
+		}
+		v := strings.TrimSpace(m[2])
+		return strings.EqualFold(v, "TRUE") || v == "1" ||
+			strings.EqualFold(v, "YES") || strings.EqualFold(v, "ON")
+	}
+	return false
+}
+
+// scanSeriesConfigs reads blog/series/*/index.org into configs.
+func (s *server) scanSeriesConfigs() map[string]seriesConfig {
 	root := filepath.Join(s.blogRoot, "series")
 	entries, err := os.ReadDir(root)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
+		return nil
 	}
-
-	bySlug := map[string]*SeriesMeta{}
-	var slugs []string
+	cfgs := map[string]seriesConfig{}
 	for _, e := range entries {
 		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") || strings.HasPrefix(e.Name(), "_") {
 			continue
@@ -237,17 +279,22 @@ func (s *server) scanSeries(posts []PostMeta) ([]SeriesMeta, error) {
 			continue
 		}
 		m := parseMeta(string(src))
-		title := m.Title
-		if title == "" {
-			title = slug
+		cfgs[slug] = seriesConfig{
+			title:       m.Title,
+			tags:        m.Tags,
+			suffixOrder: parseSuffixOrder(string(src)),
+			intro:       renderOrg(string(src), "series/"+slug),
 		}
-		bySlug[slug] = &SeriesMeta{
-			Slug:  slug,
-			Title: title,
-			Tags:  m.Tags,
-			Intro: renderOrg(string(src), "series/"+slug),
-		}
-		slugs = append(slugs, slug)
+	}
+	return cfgs
+}
+
+// scanSeries builds the series list from the index.org configs plus the
+// chapters gathered by scanPosts.
+func (s *server) scanSeries(posts []PostMeta) ([]SeriesMeta, error) {
+	cfgs := s.scanSeriesConfigs()
+	if len(cfgs) == 0 {
+		return nil, nil
 	}
 
 	chapters := map[string][]PostMeta{}
@@ -257,18 +304,28 @@ func (s *server) scanSeries(posts []PostMeta) ([]SeriesMeta, error) {
 		}
 	}
 
-	series := make([]SeriesMeta, 0, len(slugs))
-	for _, slug := range slugs {
-		sm := bySlug[slug]
+	series := make([]SeriesMeta, 0, len(cfgs))
+	for slug, cfg := range cfgs {
+		title := cfg.title
+		if title == "" {
+			title = slug
+		}
 		chs := chapters[slug]
 		sort.Slice(chs, func(i, j int) bool { return chs[i].SeriesOrder < chs[j].SeriesOrder })
+		sm := SeriesMeta{
+			Slug:        slug,
+			Title:       title,
+			Tags:        cfg.tags,
+			Intro:       cfg.intro,
+			SuffixOrder: cfg.suffixOrder,
+		}
 		sm.Start, sm.Latest = seriesRange(chs)
 		sm.Count = len(chs)
 		sm.Posts = make([]postSummary, 0, len(chs))
 		for _, c := range chs {
 			sm.Posts = append(sm.Posts, summarize(c))
 		}
-		series = append(series, *sm)
+		series = append(series, sm)
 	}
 	sort.Slice(series, func(i, j int) bool {
 		ti, _ := parsePostTime(PostMeta{Date: series[i].Latest})

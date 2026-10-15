@@ -1,0 +1,312 @@
+#+TITLE: 【LGR-306-Div.4】洛谷入门赛 #52 & 中秋赛
+#+DATE: 2026-09-29
+#+TAGS: :cs:study:algo:luogu:div.4:
+
+* A - 分月饼
+
+** 思路
+
+可以这样理解题意：每个月饼切分为12块，
+大班学生每个要吃4块，中班学生每个要吃3块，
+所以老师需要准备至少 =ceil((4a+3b)/12)= 个完整的月饼，
+并且由于本题目使用的这两个特殊分数，学生最终得到的月饼块都是完整的。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll a, b; rd(a, b);
+      ll c = a * 4 + b * 3;
+      wt(c / 12 + (c % 12 != 0));
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* B - 中秋竹灯
+
+** 思路
+
+循环判断x是否小于z，如果大于等于就将x和y同时减去z，
+以及将cnt加上y-x+1，否则说明最小的已经无法继续砍了；
+然后循环判断y是否小于z，如果大于等于就将y减去z，
+以及将cnt加上y-z+1，因为这样总是可以将大于等于z的那部分竹子
+砍掉长度为z的竹段，否则说明全部竹子的长度都小于z。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll x, y, z; rd(x, y, z);
+      ll cnt = 0;
+      while(x >= z) {
+          cnt += y - x + 1;
+          x -= z, y -= z;
+      }
+      while(y >= z) {
+          cnt += y - z + 1;
+          y -= z;
+      }
+      wt(cnt);
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+** 赛后补充
+
+写这篇总结时想到了，自己的这个代码或许可以直接把循环去掉，直接压到 =O(1)= 的时间复杂度也可以的，所以写出了以下代码（但是优化也不是很大）。
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll x, y, z; rd(x, y, z);
+      ll cnt = 0;
+      ll xCon = x / z;
+      cnt += (y - x + 1) * xCon;
+      x -= xCon * z, y -= xCon * z;
+      ll yCon = y / z;
+      ll zCon = (yCon & 1 ?
+                 yCon * ((yCon + 1) >> 1) :
+                 (yCon + 1) * (yCon >> 1));
+      cnt += yCon * (y + 1) - zCon * z;
+      wt(cnt);
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* C - 画月亮
+
+** 思路
+
+逐行逐个处理字符，在圆内就输出 =#= ，否则输出 =.= 。
+（注意不是用曼哈顿距离，而是用欧几里得距离。）
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n, r; rd(n, r);
+      ll c = (n - 1) >> 1;
+      for(ll y = 0; y < n; y ++) {
+          for(ll x = 0; x < n; x ++) {
+              if((x - c) * (x - c) + (y - c) * (y - c) <= r * r) pc('#');
+              else pc('.');
+          }
+          pc('\n');
+      }
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* D - 中秋灯谜
+
+** 思路
+
+预处理质数，然后利用滑动窗口循环访问判断，
+如果是质数则加入，不是则丢弃。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  vector<bool> prime(100, false);
+
+  void getPrime() {
+      prime[0] = prime[1] = true;
+      for(ll x = 2; x * x < 100; x ++) {
+          for(ll i = 2; i * x < 100; i ++) {
+              prime[i * x] = true;
+          }
+      }
+  }
+
+  void solve() {
+      string s; cin >> s;
+      ll nw = s[0] ^ 48, sum = 0;
+      for(ll x = 1; x < s.length(); x ++) {
+          nw = (nw % 10) * 10 + (s[x] ^ 48);
+          if(!prime[nw]) sum += nw;
+      }
+      wt(sum);
+  }
+
+  int main() {
+      getPrime();
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* E - 中秋灯会
+
+** 思路
+
+预处理未更换灯笼时，可以得到多少的同色灯对数；
+然后逐个位置比较更换后的同色对变化，然后取到最大值进行更新后输出。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  vector<ll> dirs{1, 0, -1, 0, 1};
+
+  void solve() {
+      ll h, w; rd(h, w);
+      vector<vll> v(h, vll(w, 0));
+      for(vll &y : v) for(ll &x : y) rd(x);
+      ll cnt = 0;
+      for(ll y = 0; y < h; y ++) {
+          for(ll x = 0; x < w; x ++) {
+              if(y + 1 < h && v[y][x] == v[y + 1][x]) cnt ++;
+              if(x + 1 < w && v[y][x] == v[y][x + 1]) cnt ++;
+          }
+      }
+      ll max_elem = 0;
+      for(ll y = 0; y < h; y ++) {
+          for(ll x = 0; x < w; x ++) {
+              ll elem = 0;
+              vll vv{0, 0, 0, 0};
+              for(ll dir = 0; dir < 4; dir ++) {
+                  ll yy = y + dirs[dir], xx = x + dirs[dir + 1];
+                  if(0 > yy || yy >= h || 0 > xx || xx >= w) continue;
+                  vv[v[yy][xx]] ++;
+                  // 统计周围不同颜色的灯数
+                  if(v[y][x] == v[yy][xx]) elem ++;
+                  // 计算原来有的同色对数
+              }
+              elem = max({vv[1], vv[2], vv[3]}) - elem;
+              // 将最多灯数的颜色作为替换的颜色，
+              // 于是替换后的同色对数就等于周围不同颜色灯数的最大值
+              max_elem = max(max_elem, elem);
+              // 更新增加的同色灯数
+          }
+      }
+      cnt += max_elem;
+      wt(cnt);
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* F - 月饼调配
+
+** 思路
+
+根据题目的 =店铺共有 N 间储藏间，储藏间之间有 N−1 条通道。= ，可以判断这题目涉及树形数据结构，因此得知任意两个节点的路径是唯一的。
+先预处理每个节点自身的盈亏，然后计算所有边的最少搬运次数，即月饼礼盒流量除以通道容量的向上取整；
+最后用 DFS 自底向上把所有边的最少搬运次数加起来（同时也是为了计算方便），就是全局的最少搬运次数。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  ll n, ans;
+  vll s, t, diff;
+  vector<vector<pll>> g;
+
+  ll dfs(ll u, ll pa) {
+      ll sum = diff[u];
+      for(pll& x : g[u]) {
+          ll v = x.first, c = x.second;
+          if(v == pa) continue;
+          ll sub_sum = dfs(v, u);
+          ll flow = abs(sub_sum);
+          if(flow > 0) ans += (flow + c - 1) / c;
+          sum += sub_sum;
+      }
+      return sum;
+  }
+
+  void solve() {
+      rd(n);
+      s.resize(n + 1, 0);
+      t.resize(n + 1, 0);
+      diff.resize(n + 1, 0);
+      for(ll x = 1; x <= n; x ++) rd(s[x]);
+      for(ll x = 1; x <= n; x ++) rd(t[x]);
+      for(ll x = 1; x <= n; x ++) diff[x] = s[x] - t[x];
+
+      g.resize(n + 1);
+      for(ll x = 0; x < n - 1; x ++) {
+          ll u, v, c; rd(u, v, c);
+          g[u].push_back({v, c});
+          g[v].push_back({u, c});
+      }
+
+      ans = 0;
+      dfs(1, -1);
+      wt(ans);
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+** Summary
+
+第一次把 Div. 4 给 AK 了，当时就很激动，不过难过的是我是在最后快要结束了才做完的，不过对我现在来说结果还是满意的。
+截止这篇博客写完时，这场算法赛把我的洛谷等级分直接提到了 994(+78)，虽然之前就很高了，但是这次也是我距离门槛最近的一回。

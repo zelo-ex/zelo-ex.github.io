@@ -1,0 +1,176 @@
+#+TITLE: Atcoder Beginner Contest 479
+#+DATE: 2026-10-12
+#+TAGS: :cs:study:algo:atcoder:ABC:
+
+* A - Odd Index Sum
+
+** 思路
+
+简单模拟题，边遍历判断边加就行了。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n, s = 0; rd(n);
+      for(ll i = 1; i <= n; i ++) {
+          ll x; rd(x);
+          if(i & 1) s += x;
+      }
+      wt(s);
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* B - Longest Rainy Streak
+
+** 思路
+
+也是比较偏模拟的，遍历求连续最大后输出即可。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n; string s; cin >> n >> s;
+      ll mx = 0, curr = 0;
+      for(char &c : s) {
+          if(c == 'R') curr ++;
+          mx = max(mx, curr);
+          if(c == 'S') curr = 0;
+      }
+      cout << mx;
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* C - Bento Packing
+
+** 思路
+
+这个确实没有想到会是很简单的DFS，一开始用01背包去做的，但是TLE了，就发现给出的W
+值已经到了1e9，并且N值仅仅在20以内，然后就想到了DFS，但是没想到会是仅记录取或不取的DFS，我赛时用的是每次从剩余物品中选择一件物品的DFS，所以自然而然地把时间复杂度上升到了 O(N!) ，这个确实没有想到。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  ll n, w;
+  vll a, b;
+
+  ll dfs(ll i, ll v) {
+      if(i == n) return 0;
+      ll mx = dfs(i + 1, v);
+      if(v + b[i] <= w)
+          mx = max(mx, dfs(i + 1, v + b[i]) + a[i]);
+      return mx;
+  }
+
+  void solve() {
+      rd(n, w);
+      a.resize(n, 0); b.resize(n, 0);
+      for(ll i = 0; i < n; i ++) {
+          rd(a[i], b[i]);
+      }
+      // vll dp(w + 1, 0);
+      // for(ll i = 0; i < n; i ++) {
+      //     for(ll j = w; j >= b[i]; j --) {
+      //         dp[j] = max(dp[j], dp[j - b[i]] + a[i]);
+      //     }
+      // }
+      // wt(dp[w]);
+
+      wt(dfs(0, 0));
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* D - Back and Forth Distance
+
+** 思路
+
+看到要去求从一个点到另一个点的最小总成本，我还以为可以用多源BFS去碰一下的（可能是我没看清限制条件），结果不出意外来了个TLE+MLE套餐，先留一下备份（其实未必会回来学正确的做法了可能）。
+
+** 错误代码
+
+#+begin_src cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  vector<vector<ll>> graph;
+
+  void solve() {
+      ll n, query; rd(n, query);
+      graph.resize(n, vector<ll>(n, LINF));
+      vll l(n, 0), r(n, 0);
+      for(ll i = 1; i < n; i ++) rd(l[i]);
+      for(ll i = 0; i < n - 1; i ++) rd(r[i]);
+
+      for(int i = 0; i < n; i ++) {
+          queue<pll> q;
+          q.push({i, 0});
+          while(!q.empty()) {
+              pll p = q.front(); q.pop();
+              // cout << i << ":" << p.first << ":" << p.second << "\n";
+              if(graph[i][p.first] <= p.second) continue;
+              graph[i][p.first] = p.second;
+              for(int j = 0; j < n; j ++) {
+                  if(j == p.first) continue;
+                  ll sum = p.second + (j < i ? l : r)[p.first];
+                  if(graph[i][j] <= sum) continue;
+                  q.push({j, sum});
+              }
+          }
+      }
+
+      while(query --) {
+          ll s, t; rd(s, t);
+          wt(graph[s - 1][t - 1]); pc('\n');
+      }
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+end_src
+
+
+* 总结
+
+思维题做少了可能是，有些可以用简单的思路去做的，但因为个人思维固化了，并没有意思到可以这么去做。

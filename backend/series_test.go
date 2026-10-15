@@ -5,20 +5,28 @@ import "testing"
 func TestClassifyPost(t *testing.T) {
 	cases := []struct {
 		rel    string
+		suffix bool // whether the series uses suffix ordering
 		wantOK bool
 		path   string
 		series string
 		order  int
 	}{
-		{"2026/09/oi-templates.org", true, "2026/09/oi-templates", "", 0},
-		{"series/sicp-notes/01-chapter-one.org", true, "series/sicp-notes/01-chapter-one", "sicp-notes", 1},
-		{"series/sicp-notes/10-appendix.org", true, "series/sicp-notes/10-appendix", "sicp-notes", 10},
-		{"series/foo.org", false, "", "", 0},               // no NN- prefix
-		{"series/sicp-notes/index.org", false, "", "", 0}, // series index
-		{"about.org", false, "", "", 0},
+		{"2026/09/oi-templates.org", false, true, "2026/09/oi-templates", "", 0},
+		{"series/sicp-notes/01-chapter-one.org", false, true, "series/sicp-notes/01-chapter-one", "sicp-notes", 1},
+		{"series/sicp-notes/10-appendix.org", false, true, "series/sicp-notes/10-appendix", "sicp-notes", 10},
+		{"series/sicp-notes/foo.org", false, false, "", "", 0},     // no number → not a chapter
+		{"series/sicp-notes/index.org", false, false, "", "", 0},  // series index
+		{"series/ABC/Atcoder-Beginner-Contest-475.org", true, true, "series/ABC/Atcoder-Beginner-Contest-475", "ABC", 475},
+		{"series/ABC/Atcoder-Beginner-Contest-457.org", true, true, "series/ABC/Atcoder-Beginner-Contest-457", "ABC", 457},
+		{"series/ABC/index.org", true, false, "", "", 0},          // suffix series index
+		{"about.org", false, false, "", "", 0},
 	}
 	for _, c := range cases {
-		m, ok := classifyPost(c.rel)
+		suffixBySlug := map[string]bool{}
+		if c.series != "" {
+			suffixBySlug[c.series] = c.suffix
+		}
+		m, ok := classifyPost(c.rel, suffixBySlug)
 		if ok != c.wantOK {
 			t.Errorf("classifyPost(%q) ok = %v, want %v", c.rel, ok, c.wantOK)
 			continue

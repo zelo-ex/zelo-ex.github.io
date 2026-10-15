@@ -26,7 +26,6 @@ frontend/
 ├── index.html / blog.html / tags.html / about.html / 404.html
 ├── posts.json                文章列表（前端 JS 读取）
 ├── tags.json                 标签统计
-├── about.json                渲染后的关于页
 ├── rss.xml                   RSS 订阅
 ├── assets/                   从 blog/assets/ 复制
 ├── posts/YYYY/MM/slug.html   每篇文章一个完整 HTML 页
@@ -61,10 +60,14 @@ blog/series/sicp-notes/
   - `#+TAGS:` 系列标签
   - 正文作为系列简介，渲染在系列落地页
   - 无需写 `#+DATE` 和文章数量：开始/最后日期自动取章节 `#+DATE` 的最早/最晚值，`[Count]` 自动统计
-- 章节 `NN-*.org`：`NN` 是两位数序号（只决定系列内顺序），`*` 是章节 slug；
+  - 可选 `#+SUFFIX_ORDER: TRUE`：声明本系列使用**后置**数字排序（见下）
+- 章节序号（默认**前导**）：`NN-name.org`，`NN` 任意位数、只决定系列内顺序；
   如 `01-chapter-one.org` → `/posts/series/sicp-notes/01-chapter-one.html`。
   章节可选写 `#+DATE` / `#+TITLE`；不写 `#+DATE` 则不参与系列日期统计。
   草稿同样用 `.sec.org` 后缀（如 `03-draft.sec.org`）。
+- 章节序号（**后置**）：当 `index.org` 里写了 `#+SUFFIX_ORDER: TRUE`，
+  则按文件名**末尾**数字排序，适合比赛题单这类天然带编号的系列：
+  `Atcoder-Beginner-Contest-475.org` → 序号 475（URL 保留完整文件名）。
 - 博客列表里整个系列折叠为一条 `Title[Count]`，按系列最后日期排序；
   点进去是 `/series/SLUG.html`（简介 + 开始/最后日期 + 标签 + 章节列表）。
 - 系列图片放 `blog/assets/series/SLUG/`。
@@ -92,7 +95,7 @@ blog/series/sicp-notes/
 | `/posts/2025/08/slug.html` | 文章详情（静态生成；系列章节为 `/posts/series/SLUG/NN-name.html`） |
 | `/series/SLUG.html` | 系列落地页（读 `series/SLUG.json`：简介、日期范围、标签、章节列表） |
 | `/tags.html`（`?t=tag` 过滤） | 标签（读 `tags.json` + `posts.json`） |
-| `/about.html` | 关于（读 `about.json`） |
+| `/about.html` | 关于（构建期预渲染，正文来自 `blog/about.org`） |
 | `/rss.xml` | RSS 订阅 |
 | `/assets/...` | 图片资源 |
 

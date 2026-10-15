@@ -335,6 +335,10 @@ https://www.luogu.com.cn/problem/P1775
   }
 #+end_src
 
+** 树形DP
+*** TODO P1352 没有上司的舞会
+
+
 * 树
 
 ** 树的DFS
@@ -908,3 +912,21 @@ https://www.luogu.com.cn/problem/P2802
       return 0;
   }
 #+end_src
+
+** 拓扑排序
+*** TODO P1113 [USACO02FEB] 杂务
+https://www.luogu.com.cn/problem/P1113
+
+*** TODO P4017 最大食物链计数
+https://www.luogu.com.cn/problem/P4017
+
+** 最短路
+*** TODO P4779 【模板】单源最短路径（标准版）
+https://www.luogu.com.cn/problem/P4779
+
+*** TODO P1119 灾后重建
+https://www.luogu.com.cn/problem/P1119
+
+** 最小生成树
+*** TODO P3366 【模板】最小生成树
+https://www.luogu.com.cn/problem/P3366

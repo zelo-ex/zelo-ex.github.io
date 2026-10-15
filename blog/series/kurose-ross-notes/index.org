@@ -1,0 +1,7 @@
+#+TITLE: 《计算机网络：自顶向下方法》笔记
+#+TAGS: :cs:kurose-ross:study:
+
+《计算机网络：自顶向下方法》学习笔记。
+此处用“kuross-ross”指代本书，不然路径会增长到很恐怖的地方。
+由于时间安排原因，文档是由 AI 生成的，以用于辅助教材学习。
+参考课程：[[https://www.bilibili.com/video/BV1JV411t7ow/][BiliBili - 中科大郑烇、杨坚全套《计算机网络（自顶向下方法，James F.Kurose，Keith W.Ross）》课程]]

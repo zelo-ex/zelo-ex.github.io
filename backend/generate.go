@@ -12,6 +12,33 @@ import (
 	"strings"
 )
 
+// buildAboutPage renders a standalone about page. Content is raw HTML
+// (already rendered by the org renderer); everything else is escaped.
+func buildAboutPage(about map[string]string) string {
+	page := `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>` + html.EscapeString(about["title"]) + ` - zal-blog</title>
+<link href="/style.css" rel="stylesheet"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+</head>
+<body>
+<div class="term-frame">
+<span class="blog-title">` + html.EscapeString(about["title"]) + `</span>
+<hr class="splitter" />
+<a href="/">back index</a>
+<a href="/blog.html">visit blog</a>
+<a href="/rss.xml">rss</a>
+<div class="content">` + about["html"] + `</div>
+</div>
+<script src="/js/post.js"></script>
+</body>
+</html>
+`
+	return page
+}
+
 // buildPostPage renders a standalone post page. Content is raw HTML
 // (already rendered by the org renderer); everything else is escaped.
 func buildPostPage(meta PostMeta, content string, prev, next *postSummary) string {
@@ -29,7 +56,7 @@ func buildPostPage(meta PostMeta, content string, prev, next *postSummary) strin
 <hr class="splitter" />
 <a href="/">back index</a>
 <a href="/blog.html">visit blog</a>
-<a href="/tags.html">tags</a>
+<a href="/rss.xml">rss</a>
 <div class="content">` + content + `</div>`
 	if nav := postNavHTML(meta, prev, next); nav != "" {
 		page += `
@@ -185,7 +212,8 @@ func (s *server) generate(base string) error {
 	if err != nil {
 		return err
 	}
-	if err := writeFileJSON(filepath.Join(s.frontendRoot, "about.json"), about); err != nil {
+	page := buildAboutPage(about)
+	if err := os.WriteFile(filepath.Join(s.frontendRoot, "about.html"), []byte(page), 0o644); err != nil {
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(s.frontendRoot, "rss.xml"), s.buildRSS(base), 0o644); err != nil {

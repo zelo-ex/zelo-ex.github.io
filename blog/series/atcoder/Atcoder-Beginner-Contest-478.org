@@ -1,0 +1,124 @@
+#+TITLE: Atcoder Beginner Contest 478
+#+DATE: 2026-09-13
+#+TAGS: :cs:study:algo:atcoder:ABC:
+
+* A - Grapes
+
+** 思路
+
+先计算有多少人会得到多一个，然后先输出多一个的再输出正常的。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n, m; rd(n, m);
+      for(ll x = 0; x < m % n; x ++) {
+          wt(m / n + 1); pc('\n');
+      }
+      for(ll x = m % n; x < n; x ++) {
+          wt(m / n); pc('\n');
+      }
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* B - Topping
+
+** 思路
+
+按题目直接模拟就行了，总数据规模还是在范围内的。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n, v; rd(n, v);
+      vll w; rv(w, n);
+      ll mx = 0;
+      for(ll x = 1; x <= n && x <= v; x ++) {
+          for(ll y = x + 1; y <= n && x + y <= v; y ++) {
+              for(ll z = y + 1; z <= n && x + y + z <= v; z ++) {
+                  mx = max(mx, w[x - 1] + w[y - 1] + w[z - 1]);
+              }
+          }
+      }
+      wt(mx);
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* C - Sort Subarray
+
+** 思路
+
+这里开一个数组记录前缀最大/后缀最小，先扫一遍数组并记录每个对应的前缀最大，然后由后向前比较得到最后改变的数值位置，后缀最小同理，然后比较K值确认是否足够即可。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n, k; rd(n, k);
+      vll v; rv(v, n);
+      vll w(n, 0);
+      ll mn_len = -1, mx_len = -1;
+      w[0] = v[0];
+      for(ll x = 1; x < n; x ++) {
+          w[x] = max(w[x - 1], v[x]);
+      }
+      for(ll x = n - 1; x >= 0; x --) {
+          if(w[x] != v[x]) {
+              mx_len = x; break;
+          }
+      }
+      w[n - 1] = v[n - 1];
+      for(ll x = n - 2; x >= 0; x --) {
+          w[x] = min(w[x + 1], v[x]);
+      }
+      for(ll x = 0; x < n; x ++) {
+          if(w[x] != v[x]) {
+              mn_len = x; break;
+          }
+      }
+      if(mx_len - mn_len + 1 > k) cout << "No";
+      else cout << "Yes";
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* 总结
+
+虽然这次是因为出去玩导致只有一小时左右时间去做题，但是感觉还是准备不足，因为第三题可能思路上有问题。

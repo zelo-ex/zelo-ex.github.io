@@ -13,7 +13,7 @@ frontend/posts/
 frontend/series/
 frontend/posts.json
 frontend/tags.json
-frontend/about.json
+frontend/about.html
 frontend/rss.xml
 frontend/assets/
 

@@ -1,0 +1,125 @@
+#+TITLE: Atcoder Beginner Contest 475
+#+DATE: 2026-09-13
+#+TAGS: :cs:study:algo:atcoder:ABC:
+
+* A - mnclr
+
+** 思路
+
+在新变量里面一边插入原有字符一边插入字符o，最后把末尾的字符o给删去就可以输出了。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+  #include "../../templetes.hpp"
+
+  void solve() {
+      string s; cin >> s;
+      string t = "";
+      for(char &c : s) {
+          t.push_back(c);
+          t.push_back('o');
+      }
+      t.pop_back();
+      cout << t << endl;
+      return;
+  }
+
+  int main() {
+  	ll t = 1;
+  	/* rd(t); */
+  	while(t --) solve();
+  	return 0;
+  }
+#+END_SRC
+
+
+* B - Change
+
+** 思路
+
+计算每次支付后得到的找零，然后分成100、10、1的量计算就行了，需要注意怎么去计算出 Takahashi 支付了多少钱。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+  #include "../../templetes.hpp"
+
+  void solve() {
+  	ll n; rd(n);
+  	vll v; rv(v, n);
+  	vector<ll> w(3, 0);
+  	for(ll i = 0; i < n; i ++) {
+  		ll x = v[i];
+  		ll cnt = ((x / 1000) + (x % 1000 ? 1 : 0)) * 1000;
+  		cnt = cnt - x;
+  		for(ll y = 100, idx = 2; y >= 1; y /= 10, idx --) {
+  			while(cnt >= y) {
+  				cnt -= y, w[idx] ++;
+  			}
+  		}
+  	}
+  	pv(w);
+  	return;
+  }
+
+  int main() {
+  	ll t = 1;
+  	/* rd(t); */
+  	while(t --) solve();
+  	return 0;
+  }
+#+END_SRC
+
+
+* C - Walk the Line
+
+** 思路
+
+先预处理连续城镇距离的前缀和，然后枚举所有包含起点 S 的连续城镇区间。
+在这种连续城镇区间内，存在两种较优走法，分别是先到达左端点再到达右端点和先到达右端点再到达左端点
+（因为在走向端点的过程中往回走不仅不增加额外城镇数量，还会消耗剩余可用距离，因此仅会考虑直接走向两端端点的情况），
+因此对这两个走法产生的距离取最小值后和 L 进行比较，符合条件则尝试更新城镇数量的最大值。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+  #include "../../templetes.hpp"
+
+  void solve() {
+  	ll n, s, l; rd(n, s, l);
+  	vll v(n + 1, 0);
+  	for(ll x = 2; x <= n; x ++) rd(v[x]);
+  	vll pre(n + 1, 0);
+  	for(ll x = 2; x <= n; x ++)
+  		pre[x] = pre[x - 1] + v[x];
+  	ll mx = 1;
+  	for(ll lt = s; lt >= 1; lt --) {
+  		for(ll rt = s; rt <= n; rt ++) {
+  			ll dis = pre[rt] - pre[lt];
+  			ll mn = min(pre[s] - pre[lt] + dis,
+  						pre[rt] - pre[s] + dis);
+  			if(mn <= l)
+  				mx = max(mx, rt - lt + 1);
+  			else break;
+  		}
+  	}
+  	wt(mx);
+  	return;
+  }
+
+  int main() {
+  	ll t = 1;
+  	/* rd(t); */
+  	while(t --) solve();
+  	return 0;
+  }
+#+END_SRC
+
+
+* Summary
+
+这篇思考大概在 10 月份我才抽出了点时间完善了一下，很多细节都有点模糊了，所以也没有憋出来什么好的总结，对吧（？

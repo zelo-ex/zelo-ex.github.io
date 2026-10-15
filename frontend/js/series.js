@@ -22,7 +22,7 @@ try {
   const intro = d.intro ? `<div class="content">${d.intro}</div>` : '';
   const chapters = (d.posts && d.posts.length)
     ? d.posts.map(p => {
-        const num = p.order ? `${String(p.order).padStart(2, '0')} ` : '';
+        const num = (!d.suffix_order && p.order) ? `${String(p.order).padStart(2, '0')} ` : '';
         return `<a href="${postLink(p.path)}">${num}${esc(p.title)}</a>` +
                `<span class="dim">${esc(p.date)}</span>`;
       }).join('\n')

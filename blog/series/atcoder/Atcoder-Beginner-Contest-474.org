@@ -1,0 +1,202 @@
+#+TITLE: Atcoder Beginner Contest 474
+#+DATE: 2026-09-13
+#+TAGS: :cs:study:algo:atcoder:ABC:
+
+* A - Not X
+
+** 思路
+
+一个非常简单的题目，取模加一即可。
+（不加一取模是考虑了当X为2时可能得到的结果为0，不在区间内。）
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO // 导入快读快写
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+  	ll n; rd(n);
+  	wt(n % 3 + 1);
+  	return;
+  }
+
+  int main() {
+  	ll t = 1;
+  	/* rd(t); */
+  	while(t --) solve();
+  	return 0;
+  }
+#+END_SRC
+
+
+* B - Exit Order
+
+** 思路
+
+我这里直接将每组的十位数都是一一对应的，参考如下：
+=Divide the customers into groups of 10 people each, in increasing order of the seat number they are sitting in. (按照顾客所坐座位的编号从小到大排序，将他们每 10 人分成一组。)=
+由于这里提到了 =Customers within the same group may leave in any order. (同一组内的顾客可以以任意顺序离场。)= ，因此我在组内统计后判断是不是全是同一个十位数，如果不是就直接输出 =No= 并退出，是的话就判断下一组；
+特殊的是，最后一组一定不需要判断，因为前面已经统计完了并且确认没有别的组的座位混入，因此其必然是符合要求的。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO // 导入快读快写
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+  	ll n; rd(n);
+  	vll v; rv(v, n);
+  	ll cnt = 0;
+  	for(ll x = 0; x < n; x ++) {
+  		if(x / 10 == (v[x] - 1) / 10) cnt ++;
+  		if(x % 10 == 9) {
+  			if(cnt != 10) {
+  				cout << "No\n";
+  				return;
+  			}
+  			cnt = 0;
+  		}
+  	}
+  	cout << "Yes\n";
+  	return;
+  }
+
+  int main() {
+  	ll t = 1;
+  	/* rd(t); */
+  	while(t --) solve();
+  	return 0;
+  }
+#+END_SRC
+
+
+* C - Remove and Append
+
+** 思路
+
+这里常规思路可能是根据题意逐个执行，但是对时间和空间的利用都不是特别友好。
+但根据 =after performing the Q operations.= ，不妨思考一下当执行完最后一个操作后，可能会出现什么现象？没错，最后执行操作的总会在输出的数组中位于输出的末端，，因此可以得出：越晚被执行过操作的数在输出的数组中位置越靠后。于是我们便可以得到一个基本的代码框架，即倒序填充被操作数。
+但是这并没有结束，还存在两个问题：第一就是如果存在两个及以上操作指向的数都是同一个数，这时候就不能同时塞入同一个数多次，可以用一个 =unordered_map= 来记录哪些数已经被记录过了（或者原地进行标记也可以，写这篇思路时才记起来）；第二就是如果有没有操作的数应该怎么完成，答案便是再次正序输出一次，但是那些被记录过的被操作数就需要跳过了，至此就可以运行了。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO // 导入快读快写
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+  	ll n, q; rd(n, q);
+  	vll v; rv(v, n);
+  	vll w; rv(w, q);
+  	unordered_set<ll> st;
+  	vll opt(n, 0); ll ptr = n;
+  	for(ll x = q - 1; x >= 0; x --) {
+  		if(st.count(w[x])) continue;
+  		opt[-- ptr] = w[x];
+  		st.emplace(w[x]);
+  	}
+  	ptr = 0;
+  	for(ll x = 0; x < n; x ++) {
+  		if(st.count(v[x])) continue;
+  		opt[ptr ++] = v[x];
+  		st.emplace(v[x]);
+  	}
+  	pv(opt);
+  	return;
+  }
+
+  int main() {
+  	ll t = 1;
+  	/* rd(t); */
+  	while(t --) solve();
+  	return 0;
+  }
+#+END_SRC
+
+
+* D - Outweigh
+
+** 思路
+
+我原先的想法是算差值然后把这些差值的和均摊到原数组上，这样能快速求出来，但很明显我的实现并不是很准确，写出了错误的代码，看来完整复刻出类似样例那样的效果还是对现在的我比较难的。
+但实际上这个的正确解法很简单的，因为题目也给出了条件 “1 ≤ W_i ≤ 10^18”，因此可以直接做以下操作：对于 A_i > B_i ，可以将 W_i 设置 10^18，其余的 W_i 设置为 1。记得判断是不是全部的 A_i ≤ B_i ，如果全都是这样则不可能构造出满足题意的序列，此时就输出No。
+
+** 错误代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO // 导入快读快写
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+  	ll n; rd(n);
+  	vll a, b; rv(a, n); rv(b, n);
+  	ll sum = 0, sum_add = 0, cnt = 0;
+  	for(ll x = 0; x < n; x ++) {
+  		sum += a[x] - b[x];
+  		if(a[x] > b[x])
+  			cnt ++, sum_add += a[x] - b[x];
+  	}
+  	if(!cnt) {
+  		cout << "No\n";
+  		return;
+  	}
+  	cout << "Yes\n";
+  	sum = max(-sum, 0LL);
+  	ll add = (sum / sum_add) + 1;
+  	for(ll x = 0; x < n; x ++) {
+  		if(a[x] > b[x] && add) a[x] *= add;
+  	}
+  	pv(a);
+  	return;
+  }
+
+  int main() {
+  	ll t = 1;
+  	/* rd(t); */
+  	while(t --) solve();
+  	return 0;
+  }
+#+END_SRC
+
+** 正确解答
+
+#+BEGIN_SRC cpp
+  #define FAST_IO // 导入快读快写
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+  	ll n; rd(n);
+  	vll a, b; rv(a, n); rv(b, n);
+  	vll v(n, 1);
+  	bool hasMax = false;
+  	for(ll x = 0; x < n; x ++) {
+  		if(a[x] > b[x]) v[x] = 1e18, hasMax = true;
+  	}
+  	if(!hasMax) {
+  		cout << "No\n";
+  		return;
+  	}
+  	cout << "Yes\n";
+  	pv(v);
+  	return;
+  }
+
+  int main() {
+  	ll t = 1;
+  	/* rd(t); */
+  	while(t --) solve();
+  	return 0;
+  }
+#+END_SRC
+
+
+* Summary
+
+这次竞赛发挥的还是那种一如既往的水平，D题大意了没想到思路简单到直接放在题意里面了，E题做了但样例过不去就没有放出，复盘就先到这里，下次还是再接再厉吧。

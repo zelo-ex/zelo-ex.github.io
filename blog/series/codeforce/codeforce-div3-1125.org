@@ -1,0 +1,135 @@
+#+TITLE: Codeforces Round #1125 (Div.3)
+#+DATE: 2026-10-09
+#+TAGS: :cs:study:algo:codeforce:div.3:
+
+
+* A - In Search of Convenience
+
+** 思路
+
+很简单的题，因为对结果坐标并没有限制，所以可以选取任一符合题意的坐标，这里选择输出 =(x_0 - R, y_0)= 坐标，与坐标 =(x_0, y_0)= 的距离刚刚好为 =R= ，且坐标点也位于整数。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll a, b, x; rd(a, b, x);
+      cout << a - x << " " << b << "\n";
+  }
+
+  int main() {
+      ll t = 1;
+      rd(t);
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* B - Did Not Go to Print
+
+** 思路
+
+看着比较复杂的题目，其实只需要按照题意去模拟操作就行了。
+*操作1* 相当于把当前文件压入栈中；
+*操作2* 试着弹出栈顶的内容，如果无法取出，则直接打印当前文件；
+*操作3* 就是直接打印当前文件。
+注意的是，题目也要求了，输出的应该是没被打印的文件，
+所以可以先记录已经打印的文件（栈中的文件不算被打印文件），
+然后再对应输出未打印的文件数量以及文件序号。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n; string s;
+      cin >> n >> s;
+      vector<bool> v(n, 0);
+      stack<ll> sk;
+      for(ll x = 0; x < n; x ++) {
+          if(s[x] == '1') {
+              sk.push(x);
+          } else if (s[x] == '2') {
+              if(sk.empty()) v[x] = 1;
+              else {
+                  ll tp = sk.top(); sk.pop();
+                  v[tp] = 1;
+              }
+          } else v[x] = 1;
+      }
+      vll w;
+      for(ll x = 0; x < n; x ++) {
+          if(!v[x]) w.push_back(x + 1);
+      }
+      cout << w.size() << "\n";
+      for(ll &x : w) cout << x << " ";
+      cout << "\n";
+  }
+
+  int main() {
+      ll t = 1;
+      rd(t);
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* C - Unrequited Love
+
+** 思路
+
+先预处理对于i(0 <= i < n - 4)，每个相同a_i+a_(i+2)-a_(i+4)对应数量的哈希表；
+然后从头开始数，每次先把结果更新再向前查询i - 2与i - 4，
+判断两个的观众喜好是否相同，这可以确保在相同数量的观众喜好中不会出现按键共用。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n; vll v;
+      rd(n); rv(v, n);
+      map<ll, ll> mp;
+      for(ll x = 0; x < n - 4; x ++) {
+          ll y = v[x] + v[x + 2] - v[x + 4];
+          mp[y] ++;
+      }
+      ll cnt = 0;
+      for(ll x = 0; x < n - 4; x ++) {
+          ll xv = v[x] + v[x + 2] - v[x + 4];
+          cnt += mp[xv] - 1; mp[xv] --;
+  	// 这里的mp[xv] - 1是为了计算当前triad和剩余的triad的组合，
+  	// 然后用mp[xv] --去除自身防止下次计算重复
+          for(ll y = x - 4; y < x; y += 2) {
+              if(0 > y || y >= n) continue;
+              ll yv = v[y] + v[y + 2] - v[y + 4];
+              if(xv == yv) cnt --;
+  	    // 出现按键共用且triad相同，应当去除这个情况
+          }
+      }
+      cout << cnt << "\n";
+  }
+
+  int main() {
+      ll t = 1;
+      rd(t);
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* Summary
+这次依旧是仅仅做了前三题，似乎没有多少进步，下次继续。
