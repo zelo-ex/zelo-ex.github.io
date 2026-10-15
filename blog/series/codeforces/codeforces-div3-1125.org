@@ -1,6 +1,6 @@
 #+TITLE: Codeforces Round #1125 (Div.3)
 #+DATE: 2026-10-09
-#+TAGS: :cs:study:algo:codeforce:div.3:
+#+TAGS: :cs:study:algo:codeforces:div.3:
 
 
 * A - In Search of Convenience
