@@ -33,7 +33,7 @@ body {
 }
 
 .term-frame span.blog-title {
-    font-size: 3.2em;
+    font-size: 2.4em;
     line-height: 1.2em;
 }
 
@@ -89,6 +89,7 @@ sub.series-count {
 .content pre.src code {
     font-size: 0.9em;
     font-family: "Maple Mono NF CN", monospace;
+    font-feature-settings: "calt" 0, "liga" 0;
     font-weight: normal;
 }
 .content pre.src {
@@ -148,6 +149,15 @@ sub.series-count {
 .content li { display: list-item; }
 .content img { max-width: 100%; height: auto; }
 .content hr { border: none; border-top: 1px dashed #555; margin: 0.8em 0; }
+
+.katex {
+    font-size: 1.0em !important;
+    line-height: 1.6em !important;
+}
+.katex span {
+    font-family: "Maple Mono NF CN", monospace !important;
+    font-feature-settings: "calt" 0, "liga" 0;
+}
 
 .content .status_todo { background: #400; padding: 0 0.5em; }
 .content .status_done { background: #040; padding: 0 0.5em; }

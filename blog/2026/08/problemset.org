@@ -1,6 +1,6 @@
 #+TITLE: 算法题解记录
 #+DATE: 2026-08-26
-#+TAGS: :algorithm:dp:binary tree:graph:cpp:
+#+TAGS: :algorithm:cpp:
 
 * 动态规划/DP
 

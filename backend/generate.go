@@ -48,6 +48,9 @@ func buildPostPage(meta PostMeta, content string, prev, next *postSummary) strin
 <meta charset="utf-8"/>
 <title>` + html.EscapeString(meta.Title) + ` - zal-blog</title>
 <link href="/style.css" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" defer onload="renderMathInElement(document.body);"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 </head>
 <body>
@@ -56,7 +59,6 @@ func buildPostPage(meta PostMeta, content string, prev, next *postSummary) strin
 <hr class="splitter" />
 <a href="/">back index</a>
 <a href="/blog.html">visit blog</a>
-<a href="/rss.xml">rss</a>
 <div class="content">` + content + `</div>`
 	if nav := postNavHTML(meta, prev, next); nav != "" {
 		page += `

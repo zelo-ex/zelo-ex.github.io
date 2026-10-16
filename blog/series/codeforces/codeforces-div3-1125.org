@@ -2,7 +2,6 @@
 #+DATE: 2026-10-09
 #+TAGS: :cs:study:algo:codeforces:div.3:
 
-
 * A - In Search of Convenience
 
 ** 思路

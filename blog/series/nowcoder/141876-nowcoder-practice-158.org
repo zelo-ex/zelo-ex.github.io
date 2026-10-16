@@ -1,0 +1,143 @@
+#+TITLE: 牛客练习赛158
+#+DATE: 2026-10-16
+#+TAGS: :cs:study:algo:nowcoder:
+
+* A - 赛琳的对线特训
+
+** 思路
+
+每次取区间最大值后加上区间和后如果不超出 k 值则继续，超出 k 值
+则退出并输出 x+1（因为循环的索引是从 0 开始的，所以要加 1 后才能输出）。
+如果遍历完后仍然无法达到 k 值则输出 -1。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n, k; rd(n, k);
+      vll v; rv(v, n);
+      ll sum = 0, mx = -LINF, x = 0;
+      for(x = 0; x < n; x ++) {
+	  sum += v[x], mx = max(mx, v[x]);
+	  if(sum + mx >= k) break;
+      }
+      if(x == n && sum + mx < k) wt(-1LL);
+      else wt(x + 1);
+      pc('\n');
+  }
+
+  int main() {
+      ll t = 1;
+      rd(t);
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* B - 永恒之夜
+
+** 思路
+
+数据量很少 (\(N<=2000\))，可以直接暴力计算，但是需要注意“被其他人看见的次数最少”，
+因为刚开始没有仔细审题，不小心看成“没法被其他人看见”了。
+我定义了一个结构体用来记录每个人的坐标、名字以及是否可被其他人观测，然后我循环判断任意两个不同人员的距离是否在视野半径内，存在则两个都自增，更新一个就更新“被其他人看见的次数”的最小值，在全部更新完后就可以遍历判断其“被其他人看见的次数”是否和最小值相同，相同则输出即可。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  struct enemy {
+      ll x;
+      ll y;
+      string name;
+      ll hasFound;
+  };
+
+  inline bool inView(enemy &a, enemy &b, ll r) {
+      return ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y)) <= r * r;
+  }
+
+  void solve() {
+      ll n, r; cin >> n >> r;
+      vector<enemy> v(n, {0, 0, "", false});
+      for(auto &x : v) {
+	  cin >> x.x >> x.y >> x.name;
+      }
+      ll mn = n;
+      for(ll x = 0; x < n; x ++) {
+	  for(ll y = x + 1; y < n; y ++) {
+	      if(x == y) continue;
+	      if(inView(v[x], v[y], r)) {
+		  v[x].hasFound += 1;
+		  v[y].hasFound += 1;
+	      }
+	  }
+	  mn = min(mn, v[x].hasFound);
+      }
+      for(ll x = 0; x < n; x ++) {
+	  if(v[x].hasFound == mn) cout << v[x].name << "\n";
+      }
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* C - 小雷姆吃大餐
+
+** 思路
+
+比较经典的题“求最大值中的最小值”，但依旧一开始没有反应过来，这里不展开说了。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n, k; rd(n, k);
+      vll v; rv(v, n);
+      ll l = 0, r = 0;
+      for(ll &x : v) r += x;
+      while(l < r) {
+	  ll mid = l + (r - l) / 2;
+	  ll curs = v[0], curmx = v[0], cnt = 1;
+	  for(ll x = 1; x < n; x ++) {
+	      ll news = curs + v[x], newmx = max(curmx, v[x]);
+	      if(news - newmx <= mid) curs = news, curmx = newmx;
+	      else cnt ++, curs = v[x], curmx = v[x];
+	  }
+	  if(cnt > k) l = mid + 1;
+	  else r = mid;
+	  // cout << l << ":" << r << ":" << curmx << ":" << cnt << "\n";
+      }
+      wt(l); pc('\n');
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* Summary
+
+这次也是栽在题量少导致记不起来了，然后第五题的话我一开始打算试一下遍历查询LCA的解法的，但不出意外 TLE 了，有时间再补一下。

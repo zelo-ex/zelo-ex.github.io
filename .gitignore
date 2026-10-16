@@ -16,6 +16,7 @@ frontend/tags.json
 frontend/about.html
 frontend/rss.xml
 frontend/assets/
+ltximg/
 
 # private things
 tmp/
