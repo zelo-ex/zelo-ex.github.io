@@ -1,0 +1,182 @@
+#+TITLE: Atcoder Beginner Contest 480
+#+DATE: 2026-10-17
+#+TAGS: :cs:study:algo:atcoder:ABC:
+
+* A - ADjacent
+
+** 思路
+
+简单模拟题，全部读入然后计算判断，如果曼哈顿距离为 1 则输出 Yes，否则输出 No。
+根据是两元素相邻时，其两者坐标的曼哈顿距离必定为 1。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      string s[2]; cin >> s[0] >> s[1];
+      ll x1, x2, y1, y2;
+      for(ll y = 0; y < 2; y ++) {
+	  for(ll x = 0; x < 2; x ++) {
+	      if(s[y][x] == 'A') x1 = x, y1 = y;
+	      else if(s[y][x] == 'D') x2 = x, y2 = y;
+	  }
+      }
+      if(abs(x1 - x2) + abs(y1 - y2) == 1) cout << "Yes\n";
+      else cout << "No\n";
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* B - Invalid Vote
+
+** 思路
+
+数据量比较小，直接模拟即可。
+对每个需要匹配的字符串，拿去比对列表中的每个字符串，
+如果有完全匹配的则直接得到一票，否则如果仅一个字符不相同则先存储该字符串位置；
+如果有多个字符串都是仅一个字符不相同就不作处理，否则也得到一票。
+难点在于优先级的处理，完全匹配优先覆盖处理，不完全匹配记录后续判断处理。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n, m; cin >> n >> m;
+      vector<pair<string, ll>> v(n, {"", 0LL});
+      for(auto &s : v) cin >> s.first;
+      while(m --) {
+	  string s; cin >> s;
+	  ll idx = -1, cnt = 0;
+	  for(ll x = 0; x < n; x ++) {
+	      if(v[x].first.length() != s.length()) continue;
+	      if(v[x].first == s) { v[x].second ++, cnt = 0; break; }
+	      for(ll y = 0; y < v[x].first.length(); y ++) {
+		  string t = s; t[y] = v[x].first[y];
+		  if(t == v[x].first) {
+		      cnt ++, idx = x;
+		      break;
+		  }
+	      }
+	  }
+	  if(cnt == 1) v[idx].second ++;
+      }
+      for(auto &x : v) cout << x.second << "\n";
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* C - Self-Stopping Shower
+
+** 思路
+
+有点难，需要一点读题能力和计算。
+先对数组进行排序，然后依次向后计算差分并算出两个元素间的最少可按下次数进行求和。
+注意这里是需要判断是否存在元素 0 的，如果存在则为按下次数加一；
+并且元素 n 不需要考虑是否存在，因为完成计算后可以发现最后一次总是可以覆盖到 n。
+用到的公式 \(\frac{r - l - 1}{k}\) （代码里面的忘记化简了）的作用就是计算两个元素间可以插入的最少元素个数，
+其中的减 1 是按照题目中 =Here, hot water is considered to be coming out both at the moment the button is pressed and at the moment exactly K seconds after the last press.= 这句话来判断的，
+认为哪怕恰好隔了 k 秒也算是不需要额外加入新的按下操作，因此需要减 1 来向下取，并且还需要和 0 取最大值防止可能算出负数（这个也就在排序后存在有两个连续相等元素情况下）。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n, k, t; rd(n, k, t);
+      vll v; rv(v, n);
+      sort(v.begin(), v.end());
+      ll cnt = (v[0] != 0);
+      ll l = 0, r = 0, x = 0;
+      for( ; x < n && v[x] < t; x ++) {
+	  r = v[x];
+	  cnt += max(0LL, (r - l + k - 1) / k - 1);
+	  swap(l, r);
+      }
+      cnt += (t - l + k - 1) / k - 1;
+      cout << cnt << "\n";
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* D - Concatenation of Prefixes
+
+** 思路
+
+较难，涉及前缀和以及数学计算，做的时候思路很乱，以至于赛后才整理完代码并提交拿到 AC。
+先预处理前缀和以及前缀和的前缀和（这什么东西啊。。。），然后对于每一次查询，
+计算 l 和 r 所在的前缀和的前缀和区间（我真说不明白怎么表示这东西），
+然后对在 l 和 r 所在的前缀和的前缀和区间求出连续完整块的和，
+再分别补上 r 前缀和和删去 l - 1 所在的前缀和即可输出。
+rev 函数的思路是对于 \(\frac{x \cdot (x + 1)}{2} > r\) ，已知 r 求出 x，借助这个可以很快得知某个元素前面有多少个完整块。
+
+** 代码
+
+#+begin_src cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  ll rev(ll x) {
+      return static_cast<ll>(floor((sqrt(8.0 * x - 7.0) - 1.0) / 2.0));
+  }
+
+  void solve() {
+      ll n, q; rd(n, q);
+      vll a; rv(a, n);
+      vll pre(n + 1), pre_sum(n + 1);
+      for(ll x = 1; x <= n; x ++) pre[x] = pre[x - 1] + a[x - 1];
+      for(ll x = 1; x <= n; x ++) pre_sum[x] = pre_sum[x - 1] + pre[x];
+      while(q --) {
+	  ll l, r; rd(l, r);
+	  ll lp = rev(l), rp = rev(r);
+	  ll sum = pre_sum[rp] - pre_sum[lp];
+	  sum += pre[r - ((rp + 1) * rp / 2)];
+	  sum -= pre[l - ((lp + 1) * lp / 2) - 1];
+	  cout << sum << "\n";
+      }
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+end_src
+
+
+* Summary
+
+总结似乎也总结不出来什么，感觉就是 C、D 两题花在调试试错的时间太长了，以至于没时间提交 D 题。
