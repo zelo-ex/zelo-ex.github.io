@@ -1,0 +1,156 @@
+#+TITLE: 牛客周赛166
+#+DATE: 2026-10-18
+#+TAGS: :cs:study:algo:nowcoder:
+
+* A - 小月的增减
+
+** 思路
+
+边读边处理奇偶数即可。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n, x; rd(n, x);
+      while(n --) {
+	  ll y; rd(y);
+	  if(y & 1) x --;
+	  else x ++;
+      }
+      wt(x);
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* B - 小月的集市
+
+** 思路
+
+先换成整数然后计算整除和余数即可。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll a, b, k; rd(a, b, k);
+      ll sm = 1;
+      while(k --) sm *= 10;
+      ll ax = a * sm;
+      ll x = (ax / b) / sm, y = (ax / b) % sm;
+      wt(x, y); pc('\n');
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* C - 小月的长廊
+
+** 思路
+
+对于某一个数 x，有覆盖次数 \(d(x) = \#\{j | l_j ≤ x\} - \#\{j | r_j < x\}\)，
+其中\(\#\{j | l_j ≤ x\}\)为已经开始的区间数量，\(\#\{j | r_j < x\}\)为已经结束的区间数量。
+因此先对左端点和右端点进行排序，然后对于每个区间计算一下左端点和右端点的 d(x)，
+然后取绝对值判断是否大于 p，大于等于则 cnt 加一，否则不变，最后输出即可。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #include <algorithm>
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n, p; rd(n, p);
+      ll cnt = 0;
+      vector<vll> v(2, vll(n, 0));
+      for(ll x = 0; x < n; x ++) rd(v[0][x], v[1][x]);
+      vector<vll> w = v;
+      sort(w[0].begin(), w[0].end());
+      sort(w[1].begin(), w[1].end());
+      for(ll x = 0; x < n; x ++) {
+	  ll la = upper_bound(w[0].begin(), w[0].end(), v[0][x]) - w[0].begin();
+	  ll lb = lower_bound(w[1].begin(), w[1].end(), v[0][x]) - w[1].begin();
+	  ll ra = upper_bound(w[0].begin(), w[0].end(), v[1][x]) - w[0].begin();
+	  ll rb = lower_bound(w[1].begin(), w[1].end(), v[1][x]) - w[1].begin();
+	  ll l = abs(la - lb), r = abs(ra - rb);
+	  if(abs(l - r) >= p) cnt ++;
+      }
+      wt(cnt); pc('\n');
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* D - 小月的回声
+
+** 思路
+
+反过来思路想，题目给出限制 \(1 <= a_i <= 30\) ，说明可能需要从这里下手：
+对于每次遍历，如果里面的和已经超出了 v[l]*30 的话，此时后面继续求和也必然不相等，可以直接跳出；
+因此我们先预处理前缀和，然后按上述遍历判断是否相等就好了。
+虽然时间复杂度看上去仍然像是 O(n^2)，但是在大量的剪枝后已经有较优的效率了。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n; rd(n); vll v; rv(v, n);
+      vll pre(n + 1, 0);
+      for(ll x = 1; x <= n; x ++) pre[x] = pre[x - 1] + v[x - 1];
+      ll cnt = 0;
+      for(ll l = 0; l < n - 2; l ++) {
+	  for(ll r = l + 1; r < n; r ++) {
+	      ll sum = pre[r] - pre[l + 1];
+	      if(v[l] * 30 < sum) break;
+	      if(v[l] * v[r] == sum) cnt ++;
+	      // cout << l << ":" << r << ":" << sum << ":" << cnt << "\n";
+	  }
+      }
+      wt(cnt); pc('\n');
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* Summary
+
+懒得写总结了，第五题粗略看了一下，感觉可以用 BFS 预处理每个结点的时差后再干什么的，具体不太清楚。
