@@ -1,0 +1,262 @@
+#+TITLE: 【LGR-316-Div.4】洛谷入门赛 #53 & ++RP 赛
+#+DATE: 2026-10-25
+#+TAGS: :cs:study:algo:luogu:div.4:
+
+* A - [入门赛 #53] 买牛奶
+
+** 思路
+
+分类讨论，没来得及写循环什么的，干脆 CV 大法了。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      double a, b; cin >> a >> b;
+      if(b >= a) cout << 1 << " " << fixed << setprecision(2) << a;
+      else if(b >= a * 0.9) cout << 3 << " " << fixed << setprecision(2) << a * 0.9;
+      else if(b >= a * 0.8) cout << 4 << " " << fixed << setprecision(2) << a * 0.8;
+      else if(b >= a * 0.7) cout << 5 << " " << fixed << setprecision(2) << a * 0.7;
+      else if(b >= a * 0.6) cout << 6 << " " << fixed << setprecision(2) << a * 0.6;
+      else cout << -1;
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* B - [入门赛 #53] 美术课
+
+** 思路
+
+看样例知道首行先用加号填充，然后减号加号交替填充，按样例编写即可。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n; rd(n);
+      string s = "+-";
+      for(ll y = 0; y < n; y ++) {
+	  for(ll x = 0; x < n - y; x ++) {
+	      cout << s[y & 1];
+	  }
+	  cout << "\n";
+      }
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* C - [入门赛 #53] 律动数
+
+** 思路
+
+打草稿发现，先取该数的二进制最低位，然后遍历数位判断该数是否为对应奇偶，最后再结合判断可以得到是否为律动数，详细如下：
+#+BEGIN_SRC md
+case 1:
+| n | low_dig | low_bit |
+| +++ | +++++++ | +++++++ |
+| 121 | 1 | 1 |
+| 12 | 2 | 0 |
+| 1 | 1 | 1 |
+case 2:
+| n | low_dig | low_bit |
+| +++ | +++++++ | +++++++ |
+| 30 | 0 | 0 |
+| 3 | 3 | 1 |
+#+END_SRC
+可以发现如果开始判断前取得二进制最低位来判断，则对于律动数总是能准确判断，并且在最后 low_bit 总是为 1。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll x, y; rd(x, y);
+      ll cnt = 0;
+      for(ll a = x; a <= y; a ++) {
+	  ll cp = a, dig = 1, bl = (a % 10) & 1;
+	  bool b = true;
+	  while(b && cp) {
+	      if(((cp % 10) & 1) != bl) b = false;
+	      bl = 1 - bl, dig ++, cp /= 10;
+	  }
+	  b &= !bl;
+	  if(b) { cout << a << " "; cnt ++; }
+      }
+      if(cnt == 0) cout << -1;
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* D - [入门赛 #53] 小洛搬西瓜
+
+** 思路
+
+直接遍历并标记，如果小朋友全部拿不动则不用参与后续活动，
+如果西瓜已经搬过则跳过，如果全部小朋友都搬不动或者已经全部搬完则跳出并输出。
+在这些筛选之后，运行速度有很大的优化。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n, m; rd(n, m);
+      vll a; rv(a, n);
+      vll b; rv(b, m);
+      vll c(n, 0), d(n, 0);
+      while(true) {
+	  ll cnt = 0;
+	  for(ll y = 0; y < n; y ++) {
+	      if(d[y]) continue;
+	      d[y] = 1;
+	      for(ll x = 0; x < m; x ++) {
+		  if(b[x] && a[y] >= b[x]) {
+		      c[y] += b[x], cnt ++;
+		      d[y] = 0, b[x] = 0;
+		      break;
+		  }
+	      }
+	  }
+	  if(cnt == 0) break;
+      }
+      pv(c);
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* E - [入门赛 #53] 书签
+
+** 思路
+
+一开始是开个 string 进行操作的，不出意料只有 40pts，很多测试用例都 MLE 了，换个思路就过了。
+由于字符串的首尾都是相同字符，因此每次操作在没有加入新字符时总能让原可用书签数增加，即 \(cnt_{new}= cnt_{old}*2+1\)。
+然后判断新加入的字符是否和两侧的字符相同，相同则再加 2。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n; rd(n);
+      vll v; rv(v, n);
+      ll cnt = 0, sd = 0;
+      for(ll x = 0; x < n; x ++) {
+	  cnt = cnt * 2 + 1;
+	  if(sd == v[x]) cnt += 2;
+	  sd = v[x];
+      }
+      cout << cnt;
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* F - [入门赛 #53] 新能源之旅
+
+** 思路
+
+注意到求电池容量 C 的最小值，这是一道比较经典的二分答案题（最大值的最小值）。
+对于下界为通过道路所需消耗的电量的最小值，上界为 1e18（特意取到比较大的值，防止漏掉某些特殊用例），进行二分答案，如果电池容量符合条件则降低上界，否则提升下界。
+在判断函数中，先判断在可替换电池后是否仍能通过，无法通过则条件不符合；
+如果没法通过且备用电池全部用完也是不符合条件；最后的情况则是符合条件的情况。
+需要注意的是，补电是非备用电池所可以进行的操作，备用电池不可补电。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  bool judge(ll c, ll k, ll n, vll &a, vll &b) {
+      ll nw = c, use = 0;
+      for(ll x = 0; x < n; x ++) {
+	  if(nw < a[x]) {
+	      if(use >= k) return 0;
+	      nw = c, use ++;
+	  }
+	  if(nw < a[x]) return 0;
+	  nw -= a[x];
+	  if(!use) nw = min(nw + b[x], c);
+      }
+      return 1;
+  }
+
+  void solve() {
+      ll n, k, l = 0, r = 1e18; rd(n, k);
+      vll a(n), b(n);
+      for(ll x = 0; x < n; x ++) {
+	  rd(a[x], b[x]); l = max(l, a[x]);
+      }
+      ll ans = -1;
+      while(l <= r) {
+	  ll mid = l + (r - l) / 2;
+	  if(judge(mid, k, n, a, b)) ans = mid, r = mid - 1;
+	  else l = mid + 1;
+      }
+      cout << ans;
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* Summary
+
+1.5h 慢通了这次 div.4，主要是调二分没有看到我的二分判断的函数参数写反了，以及写分类讨论的时候复制粘贴改比例耗费了一些时间，下次还是打表跑循环吧（累瘫.gif）。

@@ -1,0 +1,214 @@
+#+TITLE: 【LGR-312-Div.3】洛谷基础赛 #41 & 奶龙 OI Round 3
+#+DATE: 2026-10-24
+#+TAGS: :cs:study:algo:luogu:div.3:
+
+* A 「奶龙OI」Round 3 - 生存大师
+
+** 思路
+
+比较简单的题，遇到石头优先使用石镐，遇到钻石矿或者遇到石头但石镐无耐久使用铁稿；如果遇到石头但两个镐都没耐久或者遇到钻石矿但铁镐无耐久，则不能继续向下挖掘。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n, a, b; rd(n, a, b);
+      vll s; rv(s, n);
+      ll cnt = 0;
+      for(ll &x : s) {
+	  if(x == 1) {
+	      if(!(a || b)) break;
+	      else if(!a && b) cnt ++, b --;
+	      else cnt ++, a --;
+	  } else {
+	      if(!b) break;
+	      else cnt ++, b --;
+	  }
+      }
+      wt(cnt); pc('\n');
+  }
+
+  int main() {
+      ll t = 1;
+      rd(t);
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* B 「奶龙OI」Round 3 - 红石大佬
+
+** 思路
+
+分类讨论，通过打草稿得知以下代码逻辑，在此不赘述。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  ll solve() {
+      ll n, k; rd(n, k);
+      if(n > k * 2) { return k * 3; }
+      else if(n == k * 2) { return k * 3 - 1; }
+      else return 2 * n - k;
+  }
+
+  int main() {
+      ll t = 1;
+      rd(t);
+      while(t --) { wt(solve()); pc('\n'); }
+      return 0;
+  }
+#+END_SRC
+
+
+* C 「奶龙OI」Round 3 - 跑酷大神
+
+** 思路
+
+刚开始打草稿会感觉这真的可以算出来吗，但打完草稿后会发现有一点思路。
+先把所有数排序。设排序后的数组为：\(a_1 \le a_2 \le \cdots \le a_{2n}\)。
+
+对于任意一种合法摆放/配对方案，把每个数按照大小关系看，可以把总贡献拆成若干段相邻差之和 \(\sum_{i=1}^{2n-1} c_i(a_{i+1}-a_i)\)，其中 c_i 表示方案中跨过第 i 个分界点的次数。
+在合法方案中，除了中间这个分界点\(a_n \mid a_{n+1}\)之外，其余分界点被跨过的次数都会成对抵消，不会对最终结果产生额外贡献。
+因此整个方案的贡献等价于中间两个数的差\(a_{n+1}-a_n\)。也就是说，不管怎么合法摆放，最后真正留下来的只有排序后中间两个数的差。
+
+合法方案的数量为\((n!)^2\times 2^n\)，可以理解为：
+1. 两侧各自内部的排列贡献 n!，共 (n!)^2；
+2. 每一对/每一组内部有 2 种交换方式，共 n 组，因此再乘 2^n。
+所以总答案为\((a_{n+1}-a_n)\times (n!)^2\times 2^n\)。
+
+结论是：最终答案只和排序后中间两个数有关，即：
+\(\text{ans}=(a_{n+1}-a_n)\times(n!)^2\times 2^n\pmod{PMOD}\)。
+
+代码中数组使用 =0-index= 存储，因此排序后的中间两个数就是 =v[n - 1], v[n]= ，所以答案中作差的部分写 =v[n] - v[n - 1]= 。并且由于计算 2^n 和 n! 有时间消耗，因此先预处理这两个，然后在需要的时候取出，节省时间成本。
+
+** 代码
+
+#+BEGIN_SRC cpp
+#define FAST_IO
+
+#include "../../templetes.hpp"
+
+const ll maxlen = 1e6+10;
+vll s, t;
+
+ll solve() {
+    ll n; rd(n);
+    vll v; rv(v, 2 * n);
+    sort(v.begin(), v.end());
+    ll a = ((s[n] * s[n]) % PMOD * t[n]) % PMOD;
+    return (((v[n] - v[n - 1]) * a) % PMOD);
+}
+
+int main() {
+    s.resize(maxlen, 1); t.resize(maxlen, 1);
+    for(ll x = 2; x < maxlen; x ++) s[x] = (s[x - 1] * x) % PMOD;
+    for(ll x = 1; x < maxlen; x ++) t[x] = (t[x - 1] * 2) % PMOD;
+    ll t = 1;
+    rd(t);
+    while(t --) { wt(solve()); pc('\n'); }
+    return 0;
+}
+#+END_SRC
+
+
+* D 「奶龙OI」Round 3 - 建筑大佬
+
+** 思路
+
+这道题一开始直接用哈希表和数组什么的做，但是不出意外很多TLE、RE、WA，然后发现如果进行一次查询改变后会把那一个查询结果的都变成相同结果，因此可以加一个地方标记有多少相同元素，然后就没思路了。
+然后在赛时想到会不会和 DSU 有联系，但打了个草稿发现没什么思路，于是就放弃挣扎了。
+
+** 错误代码
+
+#+BEGIN_SRC cpp
+  #include <algorithm>
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  const ll maxlen = 1e6+10;
+  unordered_map<ll, vll> mpa, mpb, mpc;
+  ll suma, sumb, sumc;
+  vector<vll> v;
+
+  void solve() {
+      ll n, m; rd(n, m);
+      suma = sumb = sumc = 0;
+      v.resize(n + 1, vll(4, 0));
+      for(ll y = 0; y < 3; y ++) {
+	  for(ll x = 1; x <= n; x ++) {
+	      rd(v[x][y]);
+	  }
+      }
+      for(ll x = 1; x <= n; x ++) {
+	  mpa[v[x][0]].push_back(x); suma += v[x][0];
+	  mpb[v[x][1]].push_back(x); sumb += v[x][1];
+	  mpc[v[x][2]].push_back(x); sumc += v[x][2];
+	  v[x][4] = 1;
+      }
+      while(m --) {
+	  ll a, x, y, z; rd(a, x, y, z);
+
+	  if(a == 1) {
+	      ll cnt = 0;
+	      for(ll &i : mpa[x]) {
+		  const auto pb = find(mpb[v[i][1]].begin(), mpb[v[i][1]].end(), i);
+		  const auto pc = find(mpc[v[i][2]].begin(), mpc[v[i][2]].end(), i);
+		  mpb[v[i][1]].erase(pb); mpc[v[i][2]].erase(pc);
+		  sumb -= (v[i][1] - y) * v[i][4], sumc -= (v[i][2] - z) * v[i][4];
+		  cnt += v[i][4];
+	      }
+	      ll s = mpa[x][0];
+	      v[s][1] = y, v[s][2] = z, v[s][4] = cnt;
+	      mpb[y].push_back(s); mpc[z].push_back(s);
+	  } else if(a == 2) {
+	      ll cnt = 0;
+	      for(ll &i : mpb[x]) {
+		  const auto pa = find(mpa[v[i][0]].begin(), mpa[v[i][0]].end(), i);
+		  const auto pc = find(mpc[v[i][2]].begin(), mpc[v[i][2]].end(), i);
+		  mpa[v[i][0]].erase(pa); mpc[v[i][2]].erase(pc);
+		  suma -= (v[i][0] - y) * v[i][4], sumc -= (v[i][2] - z) * v[i][4];
+		  cnt += v[i][4];
+	      }
+	      ll s = mpb[x][0];
+	      v[s][0] = y, v[s][2] = z, v[s][4] = cnt;
+	      mpa[y].push_back(s); mpc[z].push_back(s);
+	  } else if(a == 3) {
+	      ll cnt = 0;
+	      for(ll &i : mpc[x]) {
+		  const auto pa = find(mpa[v[i][0]].begin(), mpa[v[i][0]].end(), i);
+		  const auto pb = find(mpb[v[i][1]].begin(), mpb[v[i][1]].end(), i);
+		  mpa[v[i][0]].erase(pa); mpb[v[i][1]].erase(pb);
+		  suma -= (v[i][0] - y) * v[i][4], sumb -= (v[i][1] - z) * v[i][4];
+		  cnt += v[i][4];
+	      }
+	      ll s = mpc[x][0];
+	      v[s][0] = y, v[s][1] = z, v[s][4] = cnt;
+	      mpa[y].push_back(s); mpb[z].push_back(s);
+	  }
+	  wt(suma, sumb, sumc); pc('\n');
+      }
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* Summary
+
+放弃挣扎了，看上去 div.3 对我来说还是很难了，第三题打草稿算了差不多三刻钟才算完。
