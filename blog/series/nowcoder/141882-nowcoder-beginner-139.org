@@ -1,0 +1,179 @@
+#+TITLE: 牛客小白月赛139
+#+DATE: 2026-10-30
+#+TAGS: :cs:study:algo:nowcoder:
+
+* A - 小芳和奶龙
+
+** 思路
+
+看样例得知就是数数，数到 0 就给小芳一个大肘子，数到 1 就给奶龙一个大肘子。
+因此用两个变量（这里我懒得判断，用容量为 2 的 vector）来存储各自的大肘子数量，
+数完后直接输出即可。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n; cin >> n;
+      string s, t; cin >> s >> t;
+      ll cnt[2] = {0};
+      for(char &c : s) {
+	  cnt[c ^ 48] ++;
+      }
+      for(char &c : t) {
+	  cnt[c ^ 48] ++;
+      }
+      cout << cnt[0] << " " << cnt[1] << "\n"; 
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* B - 奶龙的奇妙公式
+
+** 思路
+
+简单分析一下：
+1. \(a_i \ge a_j\) 时，\(min(a_i, a_j) = a_j\) 且 \(min(0, a_j - a_i) = 0\)，得 \(sum = a_j\)；
+2. \(a_i < a_j\) 时，\(min(a_i, a_j) = a_i\) 且 \(min(0, a_j - a_i) = a_j - a_i\)，得 \(sum = a_j\)；
+根据上述可得，无论你的 \(a_i\) 和 \(a_j\) 怎么取，最终返回的都是下标最大的那个，
+因此可以边后缀和边计算权值，注意条件并没有忽略 \(i = j\) 的情况。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n; rd(n);
+      vll v; rv(v, n);
+      ll s = 0, t = 0;
+      for(ll x = n - 1; x >= 0; x --) {
+	  s += t + v[x], t += v[x];
+      }
+      cout << s << "\n";
+  }
+
+  int main() {
+      ll t = 1;
+      rd(t);
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* C - 小芳的比赛
+
+** 思路
+
+在这里卡的时间最久，并且还 WA 了一发，因为我最开始仅仅注意到需要用到优先队列，
+却没有反应过来这是反悔贪心，实际上我之前确实没做过反悔贪心的题，但几天前才刷过优先队列的题。
+
+对于每个 i，先将 \(c_i\) 放入优先队列，然后判断在当前一轮中，
+是否需要选择优先队列中代价最小的几场加入最小花费中，直到满足要求 1，
+最后判断修改了的场数有没有超过未修改场数（要求 2），如果超过则输出 -1，否则输出最小花费。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n, x; rd(n, x);
+      vector<ll> c(n + 1);
+      for (int i = 1; i <= n; i++) {
+	  cin >> c[i];
+      }
+      priority_queue<ll, vector<ll>, greater<ll>> pq;
+
+      ll cnt = 0, ans_count = 0;
+      for (ll i = 1; i <= n; i ++) {
+	  pq.push(c[i]);
+	  ll req = max(0LL, (i - x + 1) / 2);
+	  while (ans_count < req) {
+	      cnt += pq.top(); pq.pop();
+	      ans_count ++;
+	  }
+      }
+
+      if (ans_count > (n - 1) / 2) {
+	  cout << -1 << "\n";
+      } else {
+	  cout << cnt << "\n";
+      }
+  }
+
+  int main() {
+      ll t = 1;
+      rd(t);
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* D - 小苯的纸牌屋
+
+** 思路
+
+通过在草稿计算可知，搭建 m 层扑克牌塔需要 \(3\cdot\frac{n(n+1)}{2}\)，因此能得出我们需要建立长度为 m 的两个数组
+（我懒得直接计算 m，直接用的循环，但前面也证明了这个可以用 \(O(1)\) 算出来的，只不过这个优化算是可以忽略不计），
+用于计算区间最小值和区间和（定长滑动窗口），在遍历计算完区间最小值数组后，对这个数组也做一次遍历，计算可以得到的最大值。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n; rd(n);
+      vll v, w, u; rv(v, n);
+      ll lv = 0;
+      while((((lv + 1) * (lv + 2)) / 2 * 3) <= n) lv ++;
+      w.resize(lv + 1, 0); u.resize(lv + 1, 0);
+      for(ll x = 0; x < n; x ++) {
+	  for(ll l = 1; l <= lv; l ++) {
+	      ll len = (l * (l + 1)) / 2 * 3;
+	      u[l] += v[x];
+	      if(x < len) {
+		  if(x == len - 1) w[l] = u[l];
+		  continue;
+	      }
+	      u[l] -= v[x - len];
+	      w[l] = max(w[l], u[l]);
+	  }
+      }
+      ll mx = w[1];
+      for(ll l = 1; l <= lv; l ++) mx = max(mx, w[l]);
+      cout << mx << "\n";
+  }
+
+  int main() {
+      ll t = 1;
+      rd(t);
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* Summary
+
+还是吃了基础不牢的亏，C 题还 WA 了一下；而且不知道怎么回事，牛客又莫名其妙变成 C 作为默认语言，可能是上次的 1024 娱乐赛没有把语言改回来，整得我动不动就 CE 两下。
