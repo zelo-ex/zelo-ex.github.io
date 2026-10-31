@@ -1,0 +1,178 @@
+#+TITLE: Atcoder Beginner Contest 482
+#+DATE: 2026-10-31
+#+TAGS: :cs:study:algo:atcoder:ABC:
+
+* A - Nigiri
+
+** 思路
+
+直接读取 o 的个数然后判断奇偶输出即可。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll cnt = 0;
+      char c;
+      while(cin >> c) {
+	  cnt += (c == 'o');
+      }
+      cout << (cnt & 1 ? "odd" : "even") << "\n";
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* B - Black Bingo
+
+** 思路
+
+直接遍历行/列/对角线并更新所需最小标记值即可。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n = 5;
+      vector<string> s(5);
+      for(string &t : s) cin >> t;
+      ll mn = 5;
+      for(ll y = 0; y < n; y ++) {
+	  ll cnt0 = 0, cnt1 = 0;
+	  for(ll x = 0; x < n; x ++) {
+	      if(s[y][x] == 'o') cnt0 ++;
+	      if(s[x][y] == 'o') cnt1 ++;
+	  }
+	  mn = min(mn, n - max(cnt0, cnt1));
+      }
+      ll cnt0 = 0, cnt1 = 0;
+      for(ll x = 0; x < n; x ++) {
+	  if(s[x][x] == 'o') cnt0 ++;
+	  if(s[n - x - 1][x] == 'o') cnt1 ++;
+      }
+      cout << min(mn, n - max(cnt0, cnt1)) << "\n";
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* C - Band Count
+
+** 思路
+
+最开始看到题目我下意识想到可能需要分别对行和列进行前缀和，但是不出意外 RE 了。
+这道题实际上是分别记录行和列，然后排序后在查询时二分查找即可。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #include <algorithm>
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll h, w, n, q; rd(h, w, n, q);
+      vll r(n, 0), c(n, 0);
+      for(ll i = 0; i < n; i ++) {
+	  ll y, x; rd(y, x);
+	  r[i] = y, c[i] = x;
+      }
+      sort(r.begin(), r.end());
+      sort(c.begin(), c.end());
+      while(q --) {
+	  ll op, a, b; rd(op, a, b);
+	  if(op == 1) {
+	      ll u = lower_bound(r.begin(), r.end(), a) - r.begin();
+	      ll p = upper_bound(r.begin(), r.end(), b) - r.begin();
+	      wt(p - u);
+	  } else {
+	      ll u = lower_bound(c.begin(), c.end(), a) - c.begin();
+	      ll p = upper_bound(c.begin(), c.end(), b) - c.begin();
+	      wt(p - u);            
+	  }
+	  pc('\n');
+      }
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* D - Wannabe Zombie
+
+** 思路
+
+对于固定的 k，只有两种最优传播顺序（在边缘时只有一种，即直接向另一端传播）：
+1. 先向右传播
+   先感染右边第一个人，需要 \(\frac{X_{k+1}-X_k}{2}\)；
+   之后 k 转向左边，左边全部感染完成时间为 \(\frac{X_{k+1}-X_{k}}{2}+\frac{X_{k}-X_{0}}{2}\)；
+   同时右边整体完成时间为 \(\frac{X_{n-1}-X_{k}}{2}\)，
+   因此在策略下的整体完成时间为 \(max(\frac{X_{k+1}-X_{0}}{2},\frac{X_{n-1}-X_{k}}{2})\)。
+2. 先向左传播
+   先感染左边第一个人，需要 \(\frac{X_{k}-X_{k-1}}{2}\)；
+   之后 k 转向右边，右边全部感染完成时间为 \(\frac{X_{k}-X_{k-1}}{2}+\frac{X_{n-1}-X_{k}}{2}\)；
+   同时左边整体完成时间为 \(\frac{X_{k}-X_{0}}{2}\)，
+   因此在该策略下的整体完成时间为 \(max(\frac{X_{n-1}-X_{k-1}}{2},\frac{X_{k}-X_{0}}{2})\)。
+然后在这两个策略中挑选最优策略，即所有人感染时间最小的策略并输出结果即可。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n; rd(n);
+      vll v; rv(v, n);
+      for(ll x = 0; x < n; x ++) {
+	  ll cnt = 0;
+	  if (x == 0 || x == n - 1) {
+	      cnt = (v[n - 1] - v[0]) >> 1;
+	  } else {
+	      ll t1 = max(v[n - 1] - v[x], v[x + 1] - v[0]);
+	      ll t2 = max(v[x] - v[0], v[n - 1] - v[x - 1]);
+	      cnt = min(t1, t2) >> 1;
+	  }
+	  wt(cnt); pc('\n');
+      }
+  }
+
+  int main() {
+      ll t = 1;
+      /* rd(t); */
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* Summary
+
+依旧开数组不看空间大小这一块，D 题也是打了比较久的草稿才算完并整理出这思路。
