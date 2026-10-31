@@ -1,0 +1,170 @@
+#+TITLE: Codeforces Round #1131 (Div.3)
+#+DATE: 2026-10-31
+#+TAGS: :cs:study:algo:codeforces:div.3:
+
+* A - Fraction and Six
+
+** 思路
+
+注意到题目说不要求顺序，直接用 map 处理，确保 's'、'i'、'x' 都仅有一个，且没有增加或缺失任何字母（即其他字母都是零值）。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n, m; cin >> n >> m;
+      string p, q; cin >> p >> q;
+      unordered_map<char, ll> mp;
+      for(char &c : p) mp[c] ++;
+      for(char &c : q) mp[c] --;
+      bool ans = true;
+      for(auto &[key, val] : mp) {
+	  if(key == 's' || key == 'i' || key == 'x') {
+	      if(val != 1) ans = false;
+	  } else {
+	      if(val != 0) ans = false;
+	  }
+      }
+      cout << (ans ? "YES" : "NO") << "\n";
+  }
+
+  int main() {
+      ll t = 1;
+      rd(t);
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* B - Stakes and Shapes
+
+** 思路
+
+这算是一道模拟题吧（虽然看起来更像是博弈论题），成功的秘诀在于全部出相同的结果，这确保了不会出现当 Bob 出了两个及以上的手势时，Alice出的手势也能恰好抵消甚至赢过 Bob 出的手势，因此通过列举了一下草稿便可得到代码所示的规律。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  const string RSP = "RSP";
+
+  void solve() {
+      ll x, y, z; rd(x, y, z);
+      ll n = x + y + z;
+      vector<pll> p{
+	  {x, 0}, {y, 1}, {z, 2}
+      };
+      sort(p.begin(), p.end(), [](const pll &a, const pll &b) {
+	  return a.first == b.first ?
+		 a.second < b.second :
+		 a.first > b.first;
+      });
+      if(p[0].first == p[1].first) {
+	  for(ll x = 0; x < n; x ++) pc(RSP[p[2].second]);
+      } else {
+	  for(ll x = 0; x < n; x ++) pc(RSP[(p[0].second + 2) % 3]);
+      }
+      pc('\n');
+  }
+
+  int main() {
+      ll t = 1;
+      rd(t);
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* C - Math and Physics
+
+** 思路
+
+在这里栽跟头了，没有考虑清楚其他情况，我认为这种要枚举很多情况的多少有点害人了（？
+这里比较特殊的情况就是当 1 集中在不同位置时的反应，可以通过打草稿来发现为什么不同，这里也不多解释。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n; rd(n);
+      vll v; rv(v, n);
+      ll sum = 0, cnt0 = 0, cnt1 = 0, cnt2 = 0;
+      for(ll x = 0, bl = 1; x < n; x ++){
+	  if(v[x] == 1) {
+	      if(bl) cnt1 ++;
+	      cnt0 ++;
+	  }
+	  else if(v[x] != 1) bl = 0;
+	  sum += v[x];
+      }
+      if(cnt1 == n) { cout << "-1\n"; return; }
+      for(ll x = n - 1, bl = 1; x >= 0; x --) {
+	  if(v[x] == 1 && bl) cnt2 ++;
+	  else if(v[x] != 1) break;
+      }
+      if(cnt1 == n - 1) cout << v[n - 1] << "\n";
+      else if(cnt2 == n - 1) cout << v[0] << "\n";
+      else if(cnt0 == n - 2 && !cnt1 && !cnt2)
+	  cout << v[0] + v[n - 1] - 1 << "\n";
+      else cout << sum - 1LL << "\n";
+  }
+
+  int main() {
+      ll t = 1;
+      rd(t);
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* D - Lock and Unlock
+
+** 思路
+
+这道题求 the minimum number of operations 还是挺好求的，就是最大值和最小值的差。
+麻烦的地方在于求 the minimum possible total cost，一开始想到用双指针在排序后的数组上移动，判断移动左指针的花费高还是移动右指针的花费高，然后选花费小的移动并记录，但很明显连样例都没有过；不过最后发现用双指针贪心计算到中位数的距离和可能越过中位数，导致成本偏大，所以干脆换成了计算相对于中位数的极差和才通过本地测验。
+
+** 代码
+
+#+BEGIN_SRC cpp
+  #define FAST_IO
+
+  #include "../../templetes.hpp"
+
+  void solve() {
+      ll n; rd(n);
+      vll v; rv(v, n);
+      sort(v.begin(), v.end(), greater<ll>());
+      ll sum = 0, mid = v[n >> 1];
+      for(ll x = 0; x < n; x ++) {
+	  sum += abs(v[x] - mid);
+      }
+      cout << sum << " " << v[0] - v[n - 1] << "\n";
+  }
+
+  int main() {
+      ll t = 1;
+      rd(t);
+      while(t --) solve();
+      return 0;
+  }
+#+END_SRC
+
+
+* Summary
+
+从下午到半夜，我连续打了三场线上赛，还要写两篇总结（洛谷那个好像没有写的必要，因为不是公开赛，不方便复盘），打了半天草稿也是累趴了。
