@@ -1,0 +1,345 @@
+#+TITLE: 关于排列的逆序对数量查询的一个离奇思路
+#+DATE: 2026-11-01
+#+TAGS: :algorithm:cpp:
+
+* 背景
+
+在补[[https://www.luogu.com.cn/contest/289027][2025广州软件学院ACM程序设计大赛秋季赛]]时，我感觉 I 题可以用建树的方式加速查询逆序对数量，甚至认为查询每次创建的逆序对仅仅需要 O(1) 的时间复杂度就行了，于是就发生了下面的事情。
+
+
+* 最初想法，O(1) 查询
+
+起初，我想维护一个状态：对于每个节点，记录“当前大于等于自己的元素有几个”。这样一来，每次查询只要看一眼对应的节点，\(O(1)\) 就能出结果。
+为了加速插入，我构思了一棵以 =highbit= 为根、不断向下二分的树的模型，并实现了一个带 =left= 、 =right= 、 =pa（父节点）= 变量的结构体数组。
+最初代码如下所示：
+
+#+BEGIN_SRC cpp
+  #include <bits/stdc++.h>
+  using namespace std;
+  using ll = long long;
+  using vll = vector<ll>;
+
+  struct node {
+      ll left, right;
+      ll pa;
+      ll val;
+  };
+  vector<node> tree;
+
+  ll lowbit(ll x) { return x & (-x); }
+  ll highbit(ll x) {
+      x |= x >> 1LL;
+      x |= x >> 2LL;
+      x |= x >> 4LL;
+      x |= x >> 8LL;
+      x |= x >> 16LL;
+      x |= x >> 32LL;
+      return (x + 1LL) >> 1LL;
+  }
+
+  void build(ll n) {
+      tree.resize(n + 1);
+      ll root = highbit(n);
+      stack<ll> sk;
+      sk.push(root); tree[root].pa = -1;
+      while(!sk.empty()) {
+	  ll rt = sk.top(); sk.pop();
+	  tree[rt].left = -1, tree[rt].right = -1;
+	  if(rt & 1) continue;
+	  ll l = rt >> 1, r = rt | (lowbit(rt) >> 1);
+	  while(r != rt) {
+	      if(r > n) r = rt | (lowbit(r) >> 1);
+	  }
+	  if(r != rt) tree[r].pa = rt, tree[rt].right = r;
+	  tree[l].pa = rt, tree[rt].left = l;
+	  sk.push(l); sk.push(r);
+      }
+  } // O(NlogN)
+
+  void sign(ll n) {
+      while(n != -1) {
+	  tree[n].val ++;
+	  n = tree[n].pa;
+      }
+  } // O(logN)
+
+  ll query(ll n) {
+      ll ans = 0;
+      if(tree[n].right != -1) ans += tree[tree[n].right].val;
+      if(tree[n].pa != -1 && tree[n].pa > n) ans += tree[tree[n].pa].val;
+      return ans;
+  } // O(1)
+
+  int main() {
+      ios::sync_with_stdio(false);
+      cin.tie(0); cout.tie(0);
+      ll n, cnt = 0; cin >> n;
+      build(n);
+      for(ll i = 0; i < n; i ++) {
+	  ll x; cin >> x;
+	  sign(x);
+	  cnt += (n - i - 1) - (i - query(x) + 1);
+      }
+      cout << cnt << "\n";
+      return 0;
+  }
+#+END_SRC
+
+但甚至连本地样例都过不去，一直 TLE，不过很快发现问题出在建树的过程，r 在压缩过程可能会路过 rt，导致循环条件失效，于是就产生了死循环。所以我把整个条件替换为 =r > n= 就没有 TLE 了，但显而易见的答案不正确，然后我就一直尝试计算过程并微调这棵树的结构。
+但计算过程中，我发现我的想法仍旧过于乐观了，因为 O(1) 的查询在这里似乎不起作用。
+
+
+* 推翻想法，O(logN) 查询
+
+在通过反例的列举后，我发现如果按我这个想法去做的话不一定能快速获取。一开始我认为只要我在每次计算完逆序对时顺便沿路径进行标记，从而简化之后的计算，但似乎忽略了一些情况。
+因为在我草稿计算的情况下，我发现在计算到 1 的时候，可能会出现读到 2 就停止的情况，而节点 2 的值仅仅为 1，很明显仅仅记录有经过元素 3，却没有记录经过元素 4 和元素 5，而想要得到这些结果就不可避免地需要迭代获取父节点的值去计算。
+于是在挣扎了好一会，尝试推翻这个结论无果后，我还是选择了 \(O(logN)\) 的查询方法，当前代码如下：
+
+#+BEGIN_SRC cpp
+  #include <bits/stdc++.h>
+  using namespace std;
+  using ll = long long;
+  using vll = vector<ll>;
+
+  struct node {
+      ll left, right;
+      ll pa;
+      ll val;
+  };
+  vector<node> tree;
+
+  ll lowbit(ll x) { return x & (-x); }
+  ll highbit(ll x) {
+      x |= x >> 1LL;
+      x |= x >> 2LL;
+      x |= x >> 4LL;
+      x |= x >> 8LL;
+      x |= x >> 16LL;
+      x |= x >> 32LL;
+      return (x + 1LL) >> 1LL;
+  }
+
+  void build(ll n) {
+      tree.resize(n + 1);
+      for(ll x = 1; x <= n; x ++)
+	  tree[x].pa = tree[x].left = tree[x].right = -1, tree[x].val = 0;
+      ll root = highbit(n);
+      stack<ll> sk;
+      sk.push(root); tree[root].pa = -1;
+      while(!sk.empty()) {
+	  ll rt = sk.top(); sk.pop();
+	  tree[rt].left = -1, tree[rt].right = -1;
+	  if(rt & 1) continue;
+	  ll l = rt >> 1, r = rt | (lowbit(rt) >> 1);
+	  while(r > n) {
+	      r = rt | (lowbit(r) >> 1);
+	  }
+	  if(r != rt) tree[r].pa = rt, tree[rt].right = r;
+	  tree[l].pa = rt, tree[rt].left = l;
+	  sk.push(l); sk.push(r);
+      }
+  } // O(NlogN)
+
+  void sign(ll n) {
+      while(n != -1) {
+	  tree[n].val ++;
+	  n = tree[n].pa;
+      }
+  } // O(logN)
+
+  ll query(ll x, ll n) {
+      ll rt = highbit(n), cnt = tree[rt].val;
+      while(rt != x) {
+	  if(rt > x)
+	      rt = tree[rt].left;
+	  else if(rt < x && tree[rt].left != -1)
+	      cnt -= tree[tree[rt].left].val, rt = tree[rt].right;
+      }
+      if(tree[x].left != -1) cnt -= tree[tree[x].left].val;
+      return cnt;
+  } // O(logN)
+
+  int main() {
+      ios::sync_with_stdio(false);
+      cin.tie(0); cout.tie(0);
+      ll n, cnt = 0; cin >> n;
+      build(n);
+      for(ll i = 0; i < n; i ++) {
+	  ll x; cin >> x;
+	  cnt += (n - i - 1) - (n - x - query(x, n));
+	  // cout << (n - i - 1) << ":" << (n - x - query(x, n)) << ":" << cnt << "\n";
+	  sign(x);
+      }
+      cout << cnt << "\n";
+      return 0;
+  }
+#+END_SRC
+
+当我满心欢喜地提交上去时，喜提了 MLE 和 TLE。
+
+
+* 位运算树的完成
+
+我考虑了很久，TLE 我倒是认为可能是代码哪里出现死循环了，但这个 MLE 从哪里冒出来的也不太清楚。于是在我给样例后面加个 6 并且加了一下长度我才发现 MLE 还能出现在这里。
+我重新打了草稿并按代码模拟了一下，发现对于左节点坐标的计算并不合理：当 \(rt = 6\) 时，\(r = 7\) 还算正常，但是 \(l = rt\gg1 = 3\) 很明显不符合常理，因为最后得到的应该是 \(l = 5\)，因此说明这个计算并不准确，而这。
+就在这时，我通过打大量草稿发现了一些特殊的规律：
+首先就是我构造的这棵树满足一个性质，即所有叶子节点的元素值都是奇数，所有父节点的元素值都是偶数，这就意味着这棵二叉树完美符合了完全二叉树的性质，因此每次只要判断 =x & 1= 是否等于 1 就能判断是否已经到底了；
+其次，我们发现 4(0b100) 的左子节点为 2(0b10)，而 6(0b110) 的左子节点又是 5(0b101)，因此我大胆推断了这个地方和 lowbit 有关，于是我把计算左子节点的公式替换成了 \(l=\bigl(rt \oplus \operatorname{lowbit}(rt)\bigr)
+  \lor \bigl(\operatorname{lowbit}(rt) \gg 1\bigr)\)，并且微调了一些代码，此时没有 MLE 和 TLE 的地方了，代码片段如下：
+
+#+BEGIN_SRC cpp
+  void build(ll n) {
+      tree.resize(n + 1);
+      for(ll x = 1; x <= n; x ++)
+	  tree[x].pa = tree[x].left = tree[x].right = -1, tree[x].val = 0;
+      ll root = highbit(n);
+      stack<ll> sk;
+      sk.push(root); tree[root].pa = -1;
+      while(!sk.empty()) {
+	  ll rt = sk.top(); sk.pop();
+	  tree[rt].left = -1, tree[rt].right = -1;
+	  if(rt & 1) continue;
+	  ll l = (rt ^ lowbit(rt)) | (lowbit(rt) >> 1), r = rt | (lowbit(rt) >> 1);
+	  while(r > n) {
+		  r = rt | (lowbit(r) >> 1);
+	      }
+	  if(r != rt) {
+	      tree[r].pa = rt, tree[rt].right = r;
+	      if(!(r & 1)) sk.push(r);
+	  }
+	  tree[l].pa = rt, tree[rt].left = l;
+	  if(!(l & 1)) sk.push(l);
+      }
+  } // O(NlogN)
+#+END_SRC
+
+但结果还是对不上号，我发现可能是因为我是反过来计算的，有些元素可能有被标记经过，但还没有轮到这个元素主动做标记表明自己已经在该元素的前面出现过，而这会导致 query 函数输出结果偏大。
+所以我重新写了 query 函数，将其改为正向计算的，即不是减去小的而是增加大的，这样计算可以省去判断是否主动标记过。具体来说，就是从根开始向元素 x 靠拢：
+如果当前遍历到的节点的元素要大于 x，则要加上当前节点的元素值并减去左子节点的元素值（如果存在），然后继续向左节点遍历；
+如果当前遍历到的节点的元素要小于 x，则直接走右节点就行了，因为只有右节点才可能出现更大的元素。然后这个查询思路的代码片段如下：
+
+#+BEGIN_SRC cpp
+  ll query(ll x, ll n) {
+      ll rt = highbit(n), cnt = 0;
+      while(rt != x && rt != -1) {
+	  if(rt > x) {
+	      cnt += tree[rt].val;
+	      if(tree[rt].left != -1) cnt -= tree[tree[rt].left].val;
+	      rt = tree[rt].left;
+	  } else {
+	      rt = tree[rt].right;
+	  }
+      }
+      if(tree[x].right != -1) cnt += tree[tree[x].right].val;
+      return cnt;
+  } // O(logN)
+#+END_SRC
+
+至此，代码已经可以 AC 了。
+
+
+* 拓展为满二叉树
+
+我们发现如果用结构体方式的话，我们至少要多出三倍的空间去存这些东西，那能不能压缩一下空间占用呢？注意到我们前面说过的性质，我们当前构造的是一个完全二叉树，为了能压缩空间，就需要 r 可以省去判断，而其中一个办法就是把完全二叉树补到满二叉树，这样 l 和 r 都仅需要用前面提到的两个公式计算落点而不需要额外存储，完整代码如下：
+
+#+BEGIN_SRC cpp
+  #include <bits/stdc++.h>
+  using namespace std;
+  using ll = long long;
+
+  vector<ll> val, pa;
+  ll root;
+
+  ll lowbit(ll x) { return x & (-x); }
+  ll highbit(ll x) {
+      x |= x >> 1LL; x |= x >> 2LL; x |= x >> 4LL;
+      x |= x >> 8LL; x |= x >> 16LL; x |= x >> 32LL;
+      return (x + 1LL) >> 1LL;
+  }
+
+  void build(ll n) {
+      ll max_val = (highbit(n) << 1) - 1;
+      val.assign(max_val + 1, 0);
+      pa.assign(max_val + 1, -1);
+      root = highbit(n);
+
+      stack<ll> sk;
+      sk.push(root); 
+      pa[root] = -1;
+
+      while(!sk.empty()) {
+	  ll rt = sk.top(); sk.pop();
+	  if(rt & 1) continue;
+
+	  ll l = (rt ^ lowbit(rt)) | (lowbit(rt) >> 1), r = rt | (lowbit(rt) >> 1);
+
+	  if(l != rt) { pa[l] = rt; sk.push(l); }
+	  if(r != rt) { pa[r] = rt; sk.push(r); }
+      }
+  }
+
+  void sign(ll n) {
+      while(n != -1) {
+	  val[n] ++, n = pa[n];
+      }
+  }
+
+  ll query(ll x) {
+      ll ans = 0, cur = root;
+      while (cur != x && cur != -1) {
+	  if (x < cur) {
+	      ll r = cur | (lowbit(cur) >> 1);
+	      if (r != cur) ans += val[r];
+	      ll l = (cur ^ lowbit(cur)) | (lowbit(cur) >> 1);
+	      ans += val[cur] - val[l] - val[r];
+	      cur = l;
+	  } else {
+	      cur = cur | (lowbit(cur) >> 1);
+	  }
+      }
+      if (cur != -1) {
+	  ll r = cur | (lowbit(cur) >> 1);
+	  if (r != cur) ans += val[r];
+      }
+      return ans;
+  }
+
+  int main() {
+      ios::sync_with_stdio(false);
+      cin.tie(0); cout.tie(0);
+      ll n, cnt = 0; 
+      if (!(cin >> n)) return 0;
+      build(n);
+
+      for(ll i = 0; i < n; i ++) {
+	  ll x; cin >> x;
+	  cnt += query(x);
+	  sign(x);
+      }
+      cout << cnt << "\n";
+      return 0;
+  }
+#+END_SRC
+
+
+* 复杂度分析
+
++ *建树 (Build)* ：
+  + 时间复杂度：\(\mathcal{O}(N)\)。
+    虽然用到了栈模拟，但每个节点只会入栈、出栈恰好一次，总操作次数与树的节点总数成正比。因为我们将树补全成了满二叉树，节点数严格控制在 \(\mathcal{O}(N)\) 级别。
+  + 空间复杂度：\(\mathcal{O}(N)\)。
+    使用两个一维数组 =val= 和 =pa= 代替结构体，空间开销为补全后的树大小，极限情况为 \(2^{\lceil \log_2 N \rceil + 1} - 1\)，在 \(N \le 10^5\) 时大约只需开辟 \(2.6 \times 10^5\) 的数组。
+
++ *插入 (Sign)* ：
+  + 时间复杂度：\(\mathcal{O}(\log N)\)。沿着 =pa= 数组一路向上跳，树高严格为 \(\lceil \log_2 N \rceil\)。
+
++ *查询 (Query)* ：
+  + 时间复杂度：\(\mathcal{O}(\log N)\)。从根节点自顶向下查找，每次根据 \(x\) 的值决定向左还是向右，所走路径长度严格不超过树高。
+
++ *总时间复杂度* ： \(\mathcal{O}(N \log N)\)。遍历 \(N\) 个元素，每次进行 \(O(\log N)\) 的查询和插入。
++ *总空间复杂度* ： \(\mathcal{O}(N)\)。
+
+
+* Summary
+
+这个解法花了差不多 1.5h 才完成 AC 的，并且这篇博客也是花了 4h 才完成的，因为这个思路真的很复杂，已经算满了我两面草稿纸，并且树状数组的解法都比这更优，这个解法还不一定很广泛可用，但毕竟这是我一次深度思考得到的解法，就写入我的博客表示庆贺吧。
